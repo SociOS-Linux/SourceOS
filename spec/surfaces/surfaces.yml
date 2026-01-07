@@ -1,0 +1,7 @@
+surfaces:
+  - id: host.immutable
+    check: rpm-ostree-status
+  - id: policy.socios_enrollment_disabled
+    check: profile-constraint
+  - id: volumes.mounted
+    check: findmnt

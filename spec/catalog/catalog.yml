@@ -1,0 +1,10 @@
+catalog:
+  apps:
+    - id: org.mozilla.firefox
+      type: flatpak
+      rationale: "Browser"
+  services:
+    - id: matrix.conduit
+      type: oci
+      default_enabled: false
+      rationale: "Public plane messaging (private by default)"

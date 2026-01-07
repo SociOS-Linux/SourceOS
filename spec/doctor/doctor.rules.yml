@@ -1,0 +1,7 @@
+rules:
+  - id: no_host_pip
+    description: "Disallow system-wide pip installs"
+    severity: error
+  - id: federation_requires_pol
+    description: "Federation may only be enabled when PoL is COMPLETE"
+    severity: error

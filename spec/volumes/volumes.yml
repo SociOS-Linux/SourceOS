@@ -1,0 +1,10 @@
+volumes:
+  Documents: {path: "~/Documents", policy: {snapshots: true, sync: off, backup: off}}
+  Downloads: {path: "~/Downloads", policy: {noexec: true, snapshots: false, sync: off, backup: off}}
+  Desktop:   {path: "~/Desktop",   policy: {snapshots: true, sync: off, backup: off}}
+  Music:     {path: "~/Music",     policy: {snapshots: true, sync: off, backup: off}}
+  Videos:    {path: "~/Videos",    policy: {snapshots: true, sync: off, backup: off}}
+  Public:    {path: "~/Public",    policy: {snapshots: true, sync: off, backup: off}}
+  Pictures:  {path: "~/Pictures",  policy: {snapshots: true, sync: off, backup: off}}
+  Projects:  {path: "~/Projects",  policy: {snapshots: true, sync: off, backup: off}}
+  Secrets:   {path: "~/Secrets",   policy: {encrypted: true, sync: off, backup: off}}

@@ -1,0 +1,11 @@
+profiles:
+  standard:
+    socios_enrollment: disabled
+    federation_default: off
+    bridges_allowed: true
+    tls_allowed: true
+  lockdown:
+    socios_enrollment: disabled
+    federation_default: off
+    bridges_allowed: false
+    tls_allowed: false
