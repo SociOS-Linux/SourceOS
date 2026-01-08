@@ -1,0 +1,14 @@
+policy_id: policy.semantic-search-bi.guard@0.1.0
+version: 1
+defaults:
+  decision: deny
+
+# Contract-level actions (runtime enforces these; contract defines the vocabulary)
+actions:
+  - semantic.search.query
+  - semantic.search.ingest
+  - semantic.search.health
+  - semantic.search.stats
+
+# Example rule slots (left empty intentionally; integrators add rules)
+rules: []

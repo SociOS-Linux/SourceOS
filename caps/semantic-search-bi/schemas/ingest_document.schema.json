@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IngestDocumentRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "correlation_id",
+    "actor",
+    "document"
+  ],
+  "properties": {
+    "correlation_id": {
+      "type": "string",
+      "minLength": 8
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content"
+      ],
+      "properties": {
+        "doc_id": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_type": {
+          "type": "string",
+          "default": "text/plain"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "source_uri": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "upsert": {
+          "type": "boolean",
+          "default": true
+        },
+        "store_raw": {
+          "type": "boolean",
+          "default": false
+        },
+        "index_lexical": {
+          "type": "boolean",
+          "default": true
+        },
+        "index_vector": {
+          "type": "boolean",
+          "default": true
+        },
+        "index_graph": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}

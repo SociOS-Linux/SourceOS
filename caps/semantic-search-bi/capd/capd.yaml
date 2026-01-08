@@ -1,0 +1,28 @@
+capability:
+  kind: contract-only
+  name: semantic-search-bi
+  version: 0.1.0
+  description: >
+    Contract-only capability package for semantic search: query/ingest surfaces,
+    schema salad anchors, topic glossary, and governance hooks. No runtime included.
+  license: MIT
+  address:
+    scheme: merkle-placeholder
+    digest: "TODO"
+requires:
+  trirpc_bus: true
+  policy_guard: true
+  evidence_emission: true
+provides:
+  rpc:
+    - rpc/semantic.search.v0.yaml
+  schemas:
+    - schemas/query_request.schema.json
+    - schemas/query_response.schema.json
+    - schemas/ingest_document.schema.json
+    - schemas/evidence_event.schema.json
+  topics:
+    - topics/semantic.search.topics.v0.yaml
+policy:
+  default_decision: deny
+  guard: policy/guard-dsl-v0.yaml

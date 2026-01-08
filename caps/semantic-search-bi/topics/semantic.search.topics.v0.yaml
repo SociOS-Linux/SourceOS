@@ -1,0 +1,40 @@
+topics:
+  - name: semantic.search.ingest.requested
+    direction: emit
+    notes: "An ingest request was submitted (pre-policy)."
+
+  - name: semantic.search.ingest.accepted
+    direction: emit
+    notes: "Ingest was accepted and queued/committed."
+
+  - name: semantic.search.ingest.denied
+    direction: emit
+    notes: "Ingest was denied by policy guard."
+
+  - name: semantic.search.query.requested
+    direction: emit
+    notes: "A query request was submitted (pre-policy)."
+
+  - name: semantic.search.query.completed
+    direction: emit
+    notes: "Query completed successfully."
+
+  - name: semantic.search.query.denied
+    direction: emit
+    notes: "Query denied by policy guard."
+
+  - name: semantic.search.explain.requested
+    direction: emit
+    notes: "Explain requested for prior query/result context."
+
+  - name: semantic.search.explain.completed
+    direction: emit
+    notes: "Explain completed (filtered output)."
+
+  - name: semantic.search.backend.health
+    direction: emit
+    notes: "Backend health update (optional periodic)."
+
+  - name: governance.evidence.emitted
+    direction: emit
+    notes: "Evidence event emitted for audit pipeline ingestion."

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QueryRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "correlation_id",
+    "actor",
+    "query"
+  ],
+  "properties": {
+    "correlation_id": {
+      "type": "string",
+      "minLength": 8
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "filters": {
+          "type": "object"
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 20
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "hybrid",
+            "lexical",
+            "vector",
+            "graph"
+          ],
+          "default": "hybrid"
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "include_snippets": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_metadata": {
+          "type": "boolean",
+          "default": true
+        },
+        "redaction_level": {
+          "type": "string",
+          "enum": [
+            "none",
+            "standard",
+            "strict"
+          ],
+          "default": "standard"
+        }
+      }
+    }
+  }
+}

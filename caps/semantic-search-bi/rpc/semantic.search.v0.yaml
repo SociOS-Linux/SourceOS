@@ -1,0 +1,51 @@
+service: semantic.search.v0
+version: 0
+
+# triRPC contract notes:
+# - request/response schemas are JSON Schema documents referenced by relative path
+# - implementers MUST enforce policy_guard and emit evidence_event for decisions
+
+methods:
+  IngestDocument:
+    request_schema: schemas/ingest_document.schema.json
+    response_schema: schemas/query_response.schema.json
+    semantics:
+      - "Registers or updates a document for later retrieval."
+      - "MUST emit evidence_event for allow/deny/error."
+      - "MUST return a stable doc_id and content_hash if accepted."
+
+  Query:
+    request_schema: schemas/query_request.schema.json
+    response_schema: schemas/query_response.schema.json
+    semantics:
+      - "Executes semantic/lexical/hybrid query depending on backend availability."
+      - "MUST include correlation_id and trace_id echo."
+      - "MUST emit evidence_event on deny/error; SHOULD emit on allow."
+
+  Explain:
+    request_schema: schemas/explain_request.schema.json
+    response_schema: schemas/explain_response.schema.json
+    semantics:
+      - "Explains ranking, backend choice, redactions, and policy impacts."
+      - "MUST NOT leak forbidden content; explanations are policy-filtered too."
+
+  GetStatus:
+    request_schema: schemas/status_request.schema.json
+    response_schema: schemas/status_response.schema.json
+    semantics:
+      - "Returns readiness, version info, and backend health summaries."
+
+  ListBackends:
+    request_schema: schemas/backends_request.schema.json
+    response_schema: schemas/backends_response.schema.json
+    semantics:
+      - "Returns declared backends and capability flags for UI + orchestration."
+
+errors:
+  codes:
+    - INVALID_ARGUMENT
+    - PERMISSION_DENIED
+    - QUOTA_EXCEEDED
+    - NOT_FOUND
+    - UNAVAILABLE
+    - INTERNAL

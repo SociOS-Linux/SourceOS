@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExplainRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "correlation_id",
+    "actor",
+    "explain"
+  ],
+  "properties": {
+    "correlation_id": {
+      "type": "string",
+      "minLength": 8
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "explain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_text"
+      ],
+      "properties": {
+        "query_text": {
+          "type": "string"
+        },
+        "result_doc_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "include_features": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_policy": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  }
+}
