@@ -1,0 +1,1 @@
+# Compression Commons (v0)\n\nUnifies:\n- Vanity Press Economy metrics (subsidy gradient, seigniorage, paper-mill equilibrium)\n- Lawful Learning constraints (projection to feasibility + replay evidence)\n- SourceOS enforcement (CapD + Triune RPC + policy guards + evidence ledger)\n\nThis module defines contracts first; reference implementations are optional.\n
