@@ -1,5 +1,9 @@
 # Semantic Search Capability Contract (Contract-Only)
 
+Canonical upstream for these contracts now lives in `SocioProphet/sherlock-search`.
+This copy in SourceOS should be treated as a mirror/reference copy, not the contract owner.
+When updating the semantic-search contract, update `sherlock-search` first and then mirror or point here deliberately.
+
 This directory explains the **Semantic Search** capability contract in plain English.
 
 ## What this is
@@ -40,4 +44,3 @@ Start at:
 ## “BI” naming note
 If the folder is `caps/semantic-search-bi`, “bi” should mean *behavioral indexing* (or whatever we intended),
 not “business intelligence”. If that’s not what we mean, we should rename now while it’s early.
-

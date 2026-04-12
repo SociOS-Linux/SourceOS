@@ -1,5 +1,8 @@
 # semantic.search — Contract Only
 
+Canonical upstream for this contract package now lives in `SocioProphet/sherlock-search`.
+This SourceOS copy is retained as a mirror/reference so local docs and tooling do not break, but changes should land upstream first.
+
 This package defines contracts for a semantic search capability:
 - triRPC service surface (rpc/semantic.search.v0.yaml)
 - topic taxonomy for event bus integration (topics/*.yaml)
