@@ -1,4 +1,4 @@
-## Boundaries
+# Boundaries
 
 - SourceOS: OS + local policy/attestations.
 - socios: opt-in community automation layer (updates/CI/CD/training).
