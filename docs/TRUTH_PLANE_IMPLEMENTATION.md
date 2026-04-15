@@ -13,11 +13,13 @@ It exists to prevent scope drift: we list exactly what we implement first, what 
 We implement only the following, end-to-end:
 
 A. Default-deny frontier egress + short-lived allow windows
+
 - A firewall posture that permits loopback + LAN but denies non-local egress by default.
 - A local gate daemon that installs temporary allow rules derived from signed grants.
 - Replay protection for grants (nonce cache).
 
 B. Minimal TruthSurface emitter
+
 - Emit one TruthSurface for `system.sealed` that includes:
   - OS fingerprint + boot integrity posture summary,
   - policy pack digest(s),
@@ -25,6 +27,7 @@ B. Minimal TruthSurface emitter
   - references to relevant decisions/tokens/runs.
 
 C. Minimal DeltaSurface emitter
+
 - Emit one DeltaSurface comparing the last two `system.sealed` TruthSurfaces:
   - gate outcome (permit/deny/needs_more_evidence),
   - risk score vs threshold,
@@ -32,6 +35,7 @@ C. Minimal DeltaSurface emitter
   - references to evidence bundles.
 
 D. Incident Freeze (phase 1 only)
+
 - Implement `incident.freeze` as:
   - block all frontier egress immediately,
   - snapshot runtime truth buffers,
@@ -54,10 +58,12 @@ D. Incident Freeze (phase 1 only)
 ### A) Egress gate
 
 Components:
+
 - `sourceos-gate-egress` (daemon)
 - firewall ruleset (nftables preferred)
 
 Behavior:
+
 1. Start in default deny posture for non-local destinations.
 2. Accept a “grant install” request only over a local socket.
 3. Validate:
@@ -70,27 +76,33 @@ Behavior:
 ### B) TruthSurface emitter
 
 Components:
+
 - `sourceos-truth-surface` (daemon)
 
 Behavior:
+
 - Produces a `TruthSurface` payload conforming to `schemas/TruthSurface.json`.
 - Stores under `/var/lib/sourceos/truth/surfaces/system.sealed/<ts>/truth-surface.json`.
 
 ### C) DeltaSurface emitter
 
 Components:
+
 - `sourceos-delta-surface` (daemon)
 
 Behavior:
+
 - Produces a `DeltaSurface` payload conforming to `schemas/DeltaSurface.json`.
 - Stores under `/var/lib/sourceos/truth/deltas/system.sealed/<ts>/delta-surface.json`.
 
 ### D) Incident Freeze
 
 Components:
+
 - `sourceos-incident` (daemon)
 
 Behavior:
+
 - Emits `incident.freeze` payload conforming to `schemas/control-plane/incident-events.schema.json`.
 - Takes configured actions and records evidence refs.
 
@@ -123,4 +135,3 @@ Behavior:
 - [ ] TruthSurface emitter skeleton + signer
 - [ ] DeltaSurface emitter skeleton + gate evaluator
 - [ ] incident.freeze executor + event emitter
-

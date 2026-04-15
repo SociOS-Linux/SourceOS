@@ -10,6 +10,7 @@ This document specifies **how the SourceOS substrate enforces** the canonical co
 **Boundary:** this repo implements enforcement. Contract shapes live in `sourceos-spec`.
 
 See also:
+
 - `docs/BOUNDARIES.md` (layer separation).
 
 ---
@@ -43,6 +44,7 @@ SourceOS enforcement is implemented as a small set of system services with stric
 5) `sourceos-incident` — executes Freeze/Fork/Kill semantics and emits corresponding events.
 
 Each service:
+
 - runs with least privilege,
 - produces signed artifacts,
 - writes to an append-only local audit stream,
@@ -56,7 +58,7 @@ All enforcement artifacts live under a single root, so the system can snapshot, 
 
 Suggested layout:
 
-```
+```text
 /var/lib/sourceos/
   truth/
     surfaces/<plane>/<timestamp>/truth-surface.json
@@ -79,6 +81,7 @@ Suggested layout:
 ```
 
 Notes:
+
 - The audit log is **append-only**.
 - The evidence index points to local blobs (or sealed bundles) without duplicating them.
 - Replay-cache prevents grant reuse (nonce replay).
@@ -130,6 +133,7 @@ A **TruthSurface** is generated per plane:
 ### Determinism
 
 Surfaces must be deterministic given the same inputs:
+
 - stable ordering,
 - canonical JSON serialization,
 - explicit timestamps in metadata only.
@@ -155,6 +159,7 @@ A **DeltaSurface** is generated between two surfaces:
 - promotion recommendation (permit/deny/needs-more-evidence).
 
 Δ-surfaces must reference:
+
 - the two surface IDs/roots,
 - the policy pack digest used for evaluation.
 
@@ -169,6 +174,7 @@ Incidents are executed as explicit phases with corresponding immutable records.
 Objective: stop mutation and contain damage.
 
 Actions (example set):
+
 - stop or pause high-risk services,
 - block frontier egress unconditionally,
 - snapshot runtime truth buffers,
@@ -179,6 +185,7 @@ Actions (example set):
 Objective: produce a sealed forensic bundle.
 
 Actions:
+
 - bundle:
   - latest truth surfaces + delta surfaces,
   - runtime snapshots,
@@ -192,6 +199,7 @@ Actions:
 Objective: terminate compromised actors and return to safe posture.
 
 Actions:
+
 - terminate compromised processes/units,
 - revoke/expire relevant grants,
 - rotate sensitive local secrets if required,
