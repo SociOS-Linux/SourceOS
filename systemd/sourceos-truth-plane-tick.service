@@ -1,0 +1,19 @@
+[Unit]
+Description=SourceOS Truth Plane tick (v0)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# v0: python scripts live in-repo; packaging will relocate to /usr/lib/sourceos/tools.
+WorkingDirectory=/usr/local/lib/sourceos || true
+ExecStart=/usr/bin/env python3 /usr/local/lib/sourceos/tools/sourceos_truth_plane_tick.py --store-root /var/lib/sourceos
+
+# Hardening (best effort; packaging may adjust paths)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
