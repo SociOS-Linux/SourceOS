@@ -6,6 +6,8 @@ This runbook assumes the v0 tools exist in `tools/`:
 - `tools/sourceos_truth_surface.py`
 - `tools/sourceos_delta_surface.py`
 - `tools/sourceos_incident.py`
+- `tools/sourceos_truth_plane_tick.py`
+- `tools/sourceos_truth_plane_smoke.py`
 
 It is intentionally local-first. No cloud dependency.
 
@@ -21,6 +23,47 @@ python tools/sourceos_truth_surface.py --plane system.sealed --store-root /tmp/s
 ```
 
 This prints the emitted TruthSurface path.
+
+---
+
+## 0a) Smoke harness (recommended v0 demo)
+
+The smoke harness runs the full v0 flow without privileged operations:
+
+- init store
+- emit two TruthSurfaces
+- emit a DeltaSurface
+- emit an `incident.freeze` event object
+
+```bash
+python tools/sourceos_truth_plane_smoke.py --store-root /tmp/sourceos-smoke --deterministic
+```
+
+Optional: validate outputs against the canonical `sourceos-spec` schemas.
+
+Requirements:
+
+- `jsonschema` installed in the current python
+- `SOURCEOS_SPEC_DIR` pointing to a local clone of `SourceOS-Linux/sourceos-spec`
+
+```bash
+SOURCEOS_SPEC_DIR=~/dev/sourceos-spec \
+  python tools/sourceos_truth_plane_smoke.py --store-root /tmp/sourceos-smoke --deterministic --validate
+```
+
+---
+
+## 0b) Tick orchestrator (periodic surfaces + delta)
+
+The tick orchestrator is the unit of periodic work intended for systemd timers. It:
+
+- ensures gate store state exists
+- emits the latest TruthSurface for the selected plane
+- emits a DeltaSurface if there are at least two stored TruthSurfaces
+
+```bash
+python tools/sourceos_truth_plane_tick.py --store-root /tmp/sourceos --plane system.sealed
+```
 
 ---
 
@@ -55,6 +98,7 @@ python tools/sourceos_gate_egress.py grant --store-root /tmp/sourceos \
 ```
 
 Expected:
+
 - updates allowlist.state.json
 - prints the rule it *would* apply
 - rejects replay of the same token+nonce
