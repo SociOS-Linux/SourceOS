@@ -4,9 +4,12 @@
 # - allow loopback
 # - allow RFC1918 local LAN by default
 # - default deny everything else (frontier)
+# - allow a short-lived, explicit allowlist set for frontier egress grants
 #
-# NOTE: This is an example ruleset. Enforcement wiring lives in sourceos-gate-egress.
-#       Operators should apply via `nft -f` in controlled environments.
+# NOTE: This file uses `flush ruleset` and is intended ONLY for controlled
+#       environments (golden images, lab installs, or explicit operator runs).
+#       The runtime gate (`tools/sourceos_gate_egress.py`) must NOT flush the
+#       ruleset; it should mutate only the allowlist set.
 
 flush ruleset
 
@@ -17,6 +20,17 @@ table inet sourceos {
     elements = { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }
   }
 
+  # Short-lived frontier allowlist (populated by the egress gate).
+  set frontier_allow_v4 {
+    type ipv4_addr
+    flags interval
+  }
+
+  set frontier_allow_ports {
+    type inet_service
+    flags interval
+  }
+
   chain output {
     type filter hook output priority 0; policy drop;
 
@@ -25,8 +39,7 @@ table inet sourceos {
     # local LAN (v4)
     ip daddr @lan_v4 accept
 
-    # TODO: wire a short-lived allow-set for frontier egress grants
-    # set frontier_allow_v4 { type ipv4_addr; flags interval; }
-    # ip daddr @frontier_allow_v4 accept
+    # controlled frontier allowlist (v4)
+    ip daddr @frontier_allow_v4 tcp dport @frontier_allow_ports accept
   }
 }
