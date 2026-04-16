@@ -1,0 +1,32 @@
+# SourceOS Truth Plane — egress baseline (v0)
+#
+# Goal: local-first posture.
+# - allow loopback
+# - allow RFC1918 local LAN by default
+# - default deny everything else (frontier)
+#
+# NOTE: This is an example ruleset. Enforcement wiring lives in sourceos-gate-egress.
+#       Operators should apply via `nft -f` in controlled environments.
+
+flush ruleset
+
+table inet sourceos {
+  set lan_v4 {
+    type ipv4_addr
+    flags interval
+    elements = { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }
+  }
+
+  chain output {
+    type filter hook output priority 0; policy drop;
+
+    oifname "lo" accept
+
+    # local LAN (v4)
+    ip daddr @lan_v4 accept
+
+    # TODO: wire a short-lived allow-set for frontier egress grants
+    # set frontier_allow_v4 { type ipv4_addr; flags interval; }
+    # ip daddr @frontier_allow_v4 accept
+  }
+}
