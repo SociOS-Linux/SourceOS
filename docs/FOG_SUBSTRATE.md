@@ -11,6 +11,7 @@ This document captures the **OS-substrate responsibilities** for the Fog layer.
 Every eligible SourceOS node/workstation should be able to realize a local storage substrate suitable for ephemeral fog workloads.
 
 This includes:
+
 - LVM2 availability
 - volume group and thin-pool conventions
 - safe disk targeting rules
@@ -35,6 +36,7 @@ These paths are substrate-level invariants so workstation, node, and container l
 ### 3. Container-host baseline
 
 SourceOS should define the default local execution posture for fog-capable nodes/workstations:
+
 - Linux-first container host defaults
 - rootless-friendly execution where possible
 - mount wiring to the fog directory contract
@@ -45,6 +47,7 @@ SourceOS should define the default local execution posture for fog-capable nodes
 When a node participates in Kubernetes lanes, the substrate should provide the prerequisites needed for a local CSI/LVM stack such as TopoLVM.
 
 Important layering rule:
+
 - local PV provisioning belongs at the substrate/infrastructure layer
 - replication and eventual-consistency semantics belong above the substrate in topic/agent layers
 
