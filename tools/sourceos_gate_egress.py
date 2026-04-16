@@ -15,6 +15,11 @@ Security posture:
 - no covert behavior
 - apply mode is opt-in and records an audit event per mutation
 
+Important:
+- The baseline ruleset (table/chain/set definitions + output policy) is expected
+  to be applied by an operator or image build lane.
+- This tool must NOT flush the nft ruleset. It only flushes/updates two allow sets.
+
 Usage:
   # create state + replay db
   python tools/sourceos_gate_egress.py init --store-root /var/lib/sourceos
@@ -24,7 +29,7 @@ Usage:
     --token-id tok_123 --nonce n_001 --exp 1760000000 \
     --target 1.2.3.4/32 --port 443
 
-  # record + apply to nft allowlist sets (requires nft + root)
+  # record + apply to nft allowlist sets (requires nft + root; baseline must already exist)
   sudo python tools/sourceos_gate_egress.py grant --apply --store-root /var/lib/sourceos \
     --token-id tok_123 --nonce n_001 --exp 1760000000 \
     --target 1.2.3.4/32 --port 443
@@ -103,7 +108,8 @@ def _append_audit(root: Path, obj: dict) -> None:
     p = _audit_path(root)
     _ensure_dir(p.parent)
     line = json.dumps(obj, sort_keys=True)
-    p.write_text(p.read_text(encoding="utf-8") + line + "\n" if p.exists() else line + "\n", encoding="utf-8")
+    with p.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
 
 
 def record_nonce(root: Path, token_id: str, nonce: str, exp: int) -> None:
@@ -131,48 +137,47 @@ def prune_expired(root: Path) -> int:
     return removed
 
 
-def _run_nft(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, check=check, text=True, capture_output=True)
 
 
-def ensure_nft_objects() -> None:
-    # Best-effort idempotent creation of required objects.
-    # We DO NOT flush rulesets here.
-    #
-    # Table/chain/set naming matches nft/sourceos-egress.nft baseline.
-    cmds = [
-        ["nft", "add", "table", "inet", "sourceos"],
-        ["nft", "add", "set", "inet", "sourceos", "lan_v4", "{", "type", "ipv4_addr", ";", "flags", "interval", ";", "}"] ,
-        ["nft", "add", "set", "inet", "sourceos", "frontier_allow_v4", "{", "type", "ipv4_addr", ";", "flags", "interval", ";", "}"] ,
-        ["nft", "add", "set", "inet", "sourceos", "frontier_allow_ports", "{", "type", "inet_service", ";", "flags", "interval", ";", "}"] ,
-        ["nft", "add", "chain", "inet", "sourceos", "output", "{", "type", "filter", "hook", "output", "priority", "0", ";", "policy", "drop", ";", "}"] ,
-    ]
-    for c in cmds:
-        try:
-            _run_nft(c, check=True)
-        except subprocess.CalledProcessError as e:
-            # ignore "file exists" style errors
-            if "File exists" in (e.stderr or "") or "exists" in (e.stderr or ""):
-                continue
-            # Some nft versions emit errors on duplicate hooks/rules; ignore best-effort.
-            continue
+def _run_nft_script(script: str) -> None:
+    # Use stdin script mode for maximum compatibility across nft versions.
+    subprocess.run(["nft", "-f", "-"], input=script, text=True, capture_output=True, check=True)
 
-    # Ensure lan_v4 has RFC1918 defaults.
-    try:
-        _run_nft(["nft", "add", "element", "inet", "sourceos", "lan_v4", "{", "10.0.0.0/8", ",", "172.16.0.0/12", ",", "192.168.0.0/16", "}"])
-    except subprocess.CalledProcessError:
-        pass
+
+def _nft_object_exists(kind: str, *parts: str) -> bool:
+    # Example: kind='table', parts=('inet','sourceos')
+    res = _run(["nft", "list", kind] + list(parts), check=False)
+    return res.returncode == 0
+
+
+def require_nft_baseline() -> None:
+    # The gate only mutates allow sets. The baseline ruleset must already exist.
+    if not _nft_object_exists("table", "inet", "sourceos"):
+        raise SystemExit("ERR: nft baseline not found (missing table inet sourceos). Apply: sudo nft -f nft/sourceos-egress.nft")
+
+    for setname in ("frontier_allow_v4", "frontier_allow_ports"):
+        if not _nft_object_exists("set", "inet", "sourceos", setname):
+            raise SystemExit(
+                f"ERR: nft baseline not found (missing set inet sourceos {setname}). Apply: sudo nft -f nft/sourceos-egress.nft"
+            )
+
+    if not _nft_object_exists("chain", "inet", "sourceos", "output"):
+        raise SystemExit("ERR: nft baseline not found (missing chain inet sourceos output). Apply: sudo nft -f nft/sourceos-egress.nft")
 
 
 def apply_allowlists(root: Path) -> None:
     # Apply current non-expired allow entries to nft sets.
-    ensure_nft_objects()
+    if os.geteuid() != 0:
+        raise SystemExit("ERR: --apply requires root")
+
+    require_nft_baseline()
 
     state = _load_state(root)
     allow = state.get("allow") or []
     now = _now_epoch()
 
-    # Collect active elements.
     addrs: set[str] = set()
     ports: set[str] = set()
     for a in allow:
@@ -183,20 +188,20 @@ def apply_allowlists(root: Path) -> None:
         for p in a.get("ports", []) or []:
             ports.add(str(int(p)))
 
-    # Replace set contents (flush set is scoped, not a ruleset flush).
-    try:
-        _run_nft(["nft", "flush", "set", "inet", "sourceos", "frontier_allow_v4"], check=False)
-        _run_nft(["nft", "flush", "set", "inet", "sourceos", "frontier_allow_ports"], check=False)
-    except subprocess.CalledProcessError:
-        pass
+    # Build an nft script that flushes only the allow sets and then repopulates.
+    script_lines: list[str] = [
+        "flush set inet sourceos frontier_allow_v4",
+        "flush set inet sourceos frontier_allow_ports",
+    ]
 
     if addrs:
-        elems = ["{", ",".join(sorted(addrs)), "}"]
-        _run_nft(["nft", "add", "element", "inet", "sourceos", "frontier_allow_v4"] + elems)
+        script_lines.append("add element inet sourceos frontier_allow_v4 { " + ", ".join(sorted(addrs)) + " }")
 
     if ports:
-        elems = ["{", ",".join(sorted(ports)), "}"]
-        _run_nft(["nft", "add", "element", "inet", "sourceos", "frontier_allow_ports"] + elems)
+        # inet_service elements are port numbers.
+        script_lines.append("add element inet sourceos frontier_allow_ports { " + ", ".join(sorted(ports)) + " }")
+
+    _run_nft_script("\n".join(script_lines) + "\n")
 
     _append_audit(
         root,
@@ -245,7 +250,7 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     ap.add_argument("--store-root", default="/var/lib/sourceos")
-    ap.add_argument("--apply", action="store_true", help="Apply allowlist sets via nft (requires nft + root)")
+    ap.add_argument("--apply", action="store_true", help="Apply allowlist sets via nft (requires nft + root; baseline must exist)")
 
     sub.add_parser("init")
 
