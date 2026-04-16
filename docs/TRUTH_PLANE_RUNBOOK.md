@@ -88,7 +88,21 @@ python tools/sourceos_delta_surface.py --from "$TS0" --to "$TS1" --store-root /t
 
 ---
 
-## 2) Install a dry-run egress grant
+## 2) Egress baseline + allowlist apply
+
+The baseline ruleset defines the table/chain/sets and default deny posture.
+
+Apply it once (operator-only):
+
+```bash
+sudo nft -f nft/sourceos-egress.nft
+```
+
+Then the gate can apply allowlist changes by mutating only the allow sets.
+
+---
+
+## 3) Install a dry-run egress grant
 
 ```bash
 # exp is epoch seconds
@@ -100,32 +114,42 @@ python tools/sourceos_gate_egress.py grant --store-root /tmp/sourceos \
 Expected:
 
 - updates allowlist.state.json
-- prints the rule it *would* apply
 - rejects replay of the same token+nonce
 
 ---
 
-## 3) Emit an incident.freeze event
+## 3a) Install and apply a grant (requires root)
+
+```bash
+sudo python tools/sourceos_gate_egress.py grant --apply --store-root /tmp/sourceos \
+  --token-id tok_demo --nonce n_0002 --exp 1893456000 \
+  --target 1.2.3.4/32 --port 443
+```
+
+Expected:
+
+- updates allowlist.state.json
+- applies allowlist sets to nft (no ruleset flush)
+- writes an audit line under `/tmp/sourceos/audit/events/<date>/gate.egress.ndjson`
+
+---
+
+## 3b) Prune expired grants (and optionally apply)
+
+```bash
+python tools/sourceos_gate_egress.py prune --store-root /tmp/sourceos
+sudo python tools/sourceos_gate_egress.py prune --apply --store-root /tmp/sourceos
+```
+
+---
+
+## 4) Emit an incident.freeze event
 
 ```bash
 python tools/sourceos_incident.py --event incident.freeze --status succeeded \
   --truth-surface-ref urn:srcos:truth-surface:ts_demo_0001 \
   --delta-surface-ref urn:srcos:delta-surface:ds_demo_0001
 ```
-
----
-
-## 4) Apply nft baseline (operator-only)
-
-The file `nft/sourceos-egress.nft` is an **example** default-deny output ruleset.
-
-Operators may apply it in controlled environments:
-
-```bash
-sudo nft -f nft/sourceos-egress.nft
-```
-
-v0 does not automatically apply nft rules.
 
 ---
 
