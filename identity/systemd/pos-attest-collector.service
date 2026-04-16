@@ -1,0 +1,6 @@
+[Unit]
+Description=Collect substrate attestation evidence
+
+[Service]
+Type=oneshot
+ExecStart=%h/SourceOS/identity/bin/sourceos-pos-attest
