@@ -9,7 +9,7 @@
 # NOTE: This file uses `flush ruleset` and is intended ONLY for controlled
 #       environments (golden images, lab installs, or explicit operator runs).
 #       The runtime gate (`tools/sourceos_gate_egress.py`) must NOT flush the
-#       ruleset; it should mutate only the allowlist set.
+#       ruleset; it should mutate only the allowlist sets.
 
 flush ruleset
 
@@ -26,7 +26,13 @@ table inet sourceos {
     flags interval
   }
 
-  set frontier_allow_ports {
+  # Protocol-scoped allowlists (populated by the egress gate).
+  set frontier_allow_tcp_ports {
+    type inet_service
+    flags interval
+  }
+
+  set frontier_allow_udp_ports {
     type inet_service
     flags interval
   }
@@ -40,6 +46,7 @@ table inet sourceos {
     ip daddr @lan_v4 accept
 
     # controlled frontier allowlist (v4)
-    ip daddr @frontier_allow_v4 tcp dport @frontier_allow_ports accept
+    ip daddr @frontier_allow_v4 tcp dport @frontier_allow_tcp_ports accept
+    ip daddr @frontier_allow_v4 udp dport @frontier_allow_udp_ports accept
   }
 }
