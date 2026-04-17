@@ -118,10 +118,10 @@ Expected:
 
 ---
 
-## 3a) Install and apply a grant (requires root)
+## 3a) Install and apply a TCP grant (requires root)
 
 ```bash
-sudo python tools/sourceos_gate_egress.py grant --apply --store-root /tmp/sourceos \
+sudo python tools/sourceos_gate_egress.py grant --apply --proto tcp --store-root /tmp/sourceos \
   --token-id tok_demo --nonce n_0002 --exp 1893456000 \
   --target 1.2.3.4/32 --port 443
 ```
@@ -131,6 +131,16 @@ Expected:
 - updates allowlist.state.json
 - applies allowlist sets to nft (no ruleset flush)
 - writes an audit line under `/tmp/sourceos/audit/events/<date>/gate.egress.ndjson`
+
+---
+
+## 3a-udp) Install and apply a UDP grant (DNS example)
+
+```bash
+sudo python tools/sourceos_gate_egress.py grant --apply --proto udp --store-root /tmp/sourceos \
+  --token-id tok_dns --nonce n_dns --exp 1893456000 \
+  --target 1.1.1.1/32 --port 53
+```
 
 ---
 
@@ -160,3 +170,13 @@ TruthSurface and DeltaSurface require a non-empty `signature` field.
 v0 uses `sig:dev:sha256:<hash>` placeholders for determinism.
 
 Real signing is a follow-on step (TPM/HSM/SSHsig).
+
+---
+
+## 6) v0 targeting note (DNS/hostnames)
+
+v0 treats `--target` as **IP/CIDR only**.
+
+If you need DNS, explicitly allow UDP/53 to a resolver via `--proto udp --port 53`.
+
+Hostname pinning and resolver policy are a follow-on step.
