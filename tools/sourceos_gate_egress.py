@@ -201,6 +201,57 @@ def _compute_expected_sets(root: Path) -> tuple[set[str], set[str], set[str]]:
     return addrs, tcp_ports, udp_ports
 
 
+def _nft_set_elements_json(setname: str) -> set[str] | None:
+    # Prefer JSON mode where available; fall back to text parsing.
+    res = _run(["nft", "-j", "list", "set", "inet", "sourceos", setname], check=False)
+    if res.returncode != 0:
+        return None
+
+    try:
+        obj = json.loads(res.stdout)
+    except Exception:
+        return None
+
+    nftables = obj.get("nftables")
+    if not isinstance(nftables, list):
+        return None
+
+    elems: list[str] = []
+
+    # Common structure: entry {"set": {"elem": [ {"elem": <val>}, ... ]}}
+    for entry in nftables:
+        if not isinstance(entry, dict):
+            continue
+
+        if "set" in entry and isinstance(entry["set"], dict):
+            s = entry["set"]
+            raw = s.get("elem")
+            if isinstance(raw, list):
+                for it in raw:
+                    if isinstance(it, dict) and "elem" in it:
+                        v = it.get("elem")
+                        if isinstance(v, dict) and "val" in v:
+                            v = v.get("val")
+                        if v is not None:
+                            elems.append(str(v))
+                    elif it is not None:
+                        elems.append(str(it))
+
+        # Alternate structure: entry {"elem": {"set": "<name>", "elem": <val>}}
+        if "elem" in entry and isinstance(entry["elem"], dict):
+            e = entry["elem"]
+            setref = e.get("set")
+            if isinstance(setref, str) and setref != setname:
+                continue
+            v = e.get("elem")
+            if isinstance(v, dict) and "val" in v:
+                v = v.get("val")
+            if v is not None:
+                elems.append(str(v))
+
+    return {e.strip() for e in elems if str(e).strip()}
+
+
 def _nft_set_elements_text(setname: str) -> set[str]:
     res = _run(["nft", "list", "set", "inet", "sourceos", setname], check=False)
     if res.returncode != 0:
@@ -219,15 +270,22 @@ def _nft_set_elements_text(setname: str) -> set[str]:
     return out
 
 
+def _nft_set_elements(setname: str) -> set[str]:
+    j = _nft_set_elements_json(setname)
+    if j is not None:
+        return j
+    return _nft_set_elements_text(setname)
+
+
 def verify_allowlists(root: Path) -> None:
     # Verify that active allowlist state matches the kernel allowlist sets.
     require_nft_baseline()
 
     exp_addrs, exp_tcp, exp_udp = _compute_expected_sets(root)
 
-    act_addrs = {a.replace("/32", "") for a in _nft_set_elements_text("frontier_allow_v4")}
-    act_tcp = {str(int(p)) for p in _nft_set_elements_text("frontier_allow_tcp_ports") if p.isdigit()}
-    act_udp = {str(int(p)) for p in _nft_set_elements_text("frontier_allow_udp_ports") if p.isdigit()}
+    act_addrs = {a.replace("/32", "") for a in _nft_set_elements("frontier_allow_v4")}
+    act_tcp = {str(int(p)) for p in _nft_set_elements("frontier_allow_tcp_ports") if p.isdigit()}
+    act_udp = {str(int(p)) for p in _nft_set_elements("frontier_allow_udp_ports") if p.isdigit()}
 
     problems: list[str] = []
 
