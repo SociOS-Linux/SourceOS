@@ -11,9 +11,12 @@ It performs:
 4) emit DeltaSurface ds(ts0, ts1)
 5) emit incident.freeze event object
 6) optional schema validation if jsonschema is available AND SOURCEOS_SPEC_DIR points to a local sourceos-spec checkout
+7) optional offline egress demo (requires baseline + root):
+   - writes a TCP and UDP grant to state
+   - applies allowlist sets
+   - verifies kernel nft state matches allowlist state
 
-No privileged operations are performed:
-- no nft rules are applied
+No other privileged operations are performed:
 - no services are paused
 
 Usage:
@@ -21,6 +24,10 @@ Usage:
 
 Optional:
   SOURCEOS_SPEC_DIR=~/dev/sourceos-spec python tools/sourceos_truth_plane_smoke.py --store-root /tmp/sourceos-smoke --validate
+
+Egress demo (offline, requires root + baseline applied):
+  sudo nft -f nft/sourceos-egress.nft
+  sudo python tools/sourceos_truth_plane_smoke.py --store-root /tmp/sourceos-smoke --egress-demo
 """
 
 from __future__ import annotations
@@ -45,10 +52,6 @@ def _write_json(path: Path, obj: dict) -> None:
     path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _read_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
 def _utc_now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -67,7 +70,6 @@ def _find_sourceos_spec_dir() -> Path | None:
         p = Path(env).expanduser()
         if (p / "schemas").is_dir():
             return p
-    # common dev layout
     p = Path.home() / "dev" / "sourceos-spec"
     if (p / "schemas").is_dir():
         return p
@@ -79,7 +81,6 @@ def _validate_jsonschema(spec_dir: Path, schema_path: Path, payload: dict) -> No
         import jsonschema  # type: ignore
 
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        # allow relative refs like ./schemas/Foo.json
         resolver = jsonschema.RefResolver(base_uri=spec_dir.as_uri().rstrip("/") + "/", referrer={})
         jsonschema.validate(instance=payload, schema=schema, resolver=resolver)
     except ModuleNotFoundError:
@@ -91,13 +92,13 @@ def main() -> int:
     ap.add_argument("--store-root", default="/tmp/sourceos-smoke")
     ap.add_argument("--validate", action="store_true", help="Validate outputs against local sourceos-spec schemas if available")
     ap.add_argument("--deterministic", action="store_true", help="Use fixed timestamps + IDs for stable demo output")
+    ap.add_argument("--egress-demo", action="store_true", help="Run offline egress apply+verify demo (requires root + baseline applied)")
 
     args = ap.parse_args()
     root = Path(args.store_root)
 
     gate.init_store(root)
 
-    # Deterministic demo knobs.
     ts0_id = "urn:srcos:truth-surface:ts_smoke_0000" if args.deterministic else None
     ts1_id = "urn:srcos:truth-surface:ts_smoke_0001" if args.deterministic else None
 
@@ -136,7 +137,6 @@ def main() -> int:
     surface0 = ts.build_surface(ns0)
     surface1 = ts.build_surface(ns1)
 
-    # store surfaces
     d0 = created0.replace(":", "").replace("-", "")
     d1 = created1.replace(":", "").replace("-", "")
 
@@ -167,7 +167,6 @@ def main() -> int:
     pd = root / "truth" / "deltas" / "system.sealed" / d2 / "delta-surface.json"
     _write_json(pd, delta)
 
-    # incident.freeze event object (schema-shaped)
     incident = {
         "event_id": "evt_smoke_0001" if args.deterministic else "evt_" + d2,
         "event_name": "incident.freeze",
@@ -186,7 +185,6 @@ def main() -> int:
     pi = root / "incidents" / "incident.freeze" / d2 / "incident-event.json"
     _write_json(pi, incident)
 
-    # optional validation
     if args.validate:
         spec_dir = _find_sourceos_spec_dir()
         if not spec_dir:
@@ -203,11 +201,25 @@ def main() -> int:
             except Exception as e:
                 raise SystemExit(f"ERR: schema validation failed: {e}")
 
+    if args.egress_demo:
+        if os.geteuid() != 0:
+            raise SystemExit("ERR: --egress-demo requires root")
+
+        # Offline-only demo: use RFC1918 target so this doesn't attempt real egress.
+        exp = int(time.time()) + 3600
+        gate.grant_install(root, "tok_smoke_tcp", "n_tcp", exp, ["10.0.0.1/32"], [443], "tcp", apply=False)
+        gate.grant_install(root, "tok_smoke_udp", "n_udp", exp, ["10.0.0.1/32"], [53], "udp", apply=False)
+
+        gate.apply_allowlists(root)
+        gate.verify_allowlists(root)
+
     print("OK:")
     print(f"  ts0: {p0}")
     print(f"  ts1: {p1}")
     print(f"  ds : {pd}")
     print(f"  inc: {pi}")
+    if args.egress_demo:
+        print("  egress: applied+verified")
     return 0
 
 
