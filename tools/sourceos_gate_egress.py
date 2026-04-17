@@ -18,7 +18,7 @@ Security posture:
 Important:
 - The baseline ruleset (table/chain/set definitions + output policy) is expected
   to be applied by an operator or image build lane.
-- This tool must NOT flush the nft ruleset. It only flushes/updates two allow sets.
+- This tool must NOT flush the nft ruleset. It only flushes/updates allow sets.
 
 Usage:
   # create state + replay db
@@ -33,6 +33,11 @@ Usage:
   sudo python tools/sourceos_gate_egress.py grant --apply --store-root /var/lib/sourceos \
     --token-id tok_123 --nonce n_001 --exp 1760000000 \
     --target 1.2.3.4/32 --port 443
+
+  # record + apply UDP allowlist (e.g., DNS)
+  sudo python tools/sourceos_gate_egress.py grant --apply --proto udp --store-root /var/lib/sourceos \
+    --token-id tok_dns --nonce n_dns --exp 1760000000 \
+    --target 1.1.1.1/32 --port 53
 
   # prune expired grants from state (and optionally apply)
   sudo python tools/sourceos_gate_egress.py prune --apply --store-root /var/lib/sourceos
@@ -147,17 +152,15 @@ def _run_nft_script(script: str) -> None:
 
 
 def _nft_object_exists(kind: str, *parts: str) -> bool:
-    # Example: kind='table', parts=('inet','sourceos')
     res = _run(["nft", "list", kind] + list(parts), check=False)
     return res.returncode == 0
 
 
 def require_nft_baseline() -> None:
-    # The gate only mutates allow sets. The baseline ruleset must already exist.
     if not _nft_object_exists("table", "inet", "sourceos"):
         raise SystemExit("ERR: nft baseline not found (missing table inet sourceos). Apply: sudo nft -f nft/sourceos-egress.nft")
 
-    for setname in ("frontier_allow_v4", "frontier_allow_ports"):
+    for setname in ("frontier_allow_v4", "frontier_allow_tcp_ports", "frontier_allow_udp_ports"):
         if not _nft_object_exists("set", "inet", "sourceos", setname):
             raise SystemExit(
                 f"ERR: nft baseline not found (missing set inet sourceos {setname}). Apply: sudo nft -f nft/sourceos-egress.nft"
@@ -168,7 +171,6 @@ def require_nft_baseline() -> None:
 
 
 def apply_allowlists(root: Path) -> None:
-    # Apply current non-expired allow entries to nft sets.
     if os.geteuid() != 0:
         raise SystemExit("ERR: --apply requires root")
 
@@ -179,27 +181,35 @@ def apply_allowlists(root: Path) -> None:
     now = _now_epoch()
 
     addrs: set[str] = set()
-    ports: set[str] = set()
+    tcp_ports: set[str] = set()
+    udp_ports: set[str] = set()
+
     for a in allow:
         if int(a.get("exp", 0)) <= now:
             continue
         for t in a.get("targets", []) or []:
             addrs.add(str(t))
+        proto = str(a.get("proto", "tcp")).lower()
         for p in a.get("ports", []) or []:
-            ports.add(str(int(p)))
+            if proto == "udp":
+                udp_ports.add(str(int(p)))
+            else:
+                tcp_ports.add(str(int(p)))
 
-    # Build an nft script that flushes only the allow sets and then repopulates.
     script_lines: list[str] = [
         "flush set inet sourceos frontier_allow_v4",
-        "flush set inet sourceos frontier_allow_ports",
+        "flush set inet sourceos frontier_allow_tcp_ports",
+        "flush set inet sourceos frontier_allow_udp_ports",
     ]
 
     if addrs:
         script_lines.append("add element inet sourceos frontier_allow_v4 { " + ", ".join(sorted(addrs)) + " }")
 
-    if ports:
-        # inet_service elements are port numbers.
-        script_lines.append("add element inet sourceos frontier_allow_ports { " + ", ".join(sorted(ports)) + " }")
+    if tcp_ports:
+        script_lines.append("add element inet sourceos frontier_allow_tcp_ports { " + ", ".join(sorted(tcp_ports)) + " }")
+
+    if udp_ports:
+        script_lines.append("add element inet sourceos frontier_allow_udp_ports { " + ", ".join(sorted(udp_ports)) + " }")
 
     _run_nft_script("\n".join(script_lines) + "\n")
 
@@ -210,12 +220,13 @@ def apply_allowlists(root: Path) -> None:
             "module": "sourceos-gate-egress",
             "action": "apply_allowlists",
             "frontier_allow_v4": sorted(addrs),
-            "frontier_allow_ports": sorted(ports),
+            "frontier_allow_tcp_ports": sorted(tcp_ports),
+            "frontier_allow_udp_ports": sorted(udp_ports),
         },
     )
 
 
-def grant_install(root: Path, token_id: str, nonce: str, exp: int, targets: list[str], ports: list[int], apply: bool) -> None:
+def grant_install(root: Path, token_id: str, nonce: str, exp: int, targets: list[str], ports: list[int], proto: str, apply: bool) -> None:
     if exp <= _now_epoch():
         raise SystemExit("ERR: grant expired")
 
@@ -231,6 +242,7 @@ def grant_install(root: Path, token_id: str, nonce: str, exp: int, targets: list
             "exp": int(exp),
             "targets": targets,
             "ports": ports,
+            "proto": proto,
             "installed_at": _now_epoch(),
         }
     )
@@ -239,7 +251,7 @@ def grant_install(root: Path, token_id: str, nonce: str, exp: int, targets: list
     _save_state(root, state)
 
     for t in targets:
-        print(f"ALLOW (state): {t} ports={ports} until exp={exp}")
+        print(f"ALLOW (state): {t} proto={proto} ports={ports} until exp={exp}")
 
     if apply:
         apply_allowlists(root)
@@ -258,6 +270,7 @@ def main() -> int:
     p_grant.add_argument("--token-id", required=True)
     p_grant.add_argument("--nonce", required=True)
     p_grant.add_argument("--exp", required=True, type=int)
+    p_grant.add_argument("--proto", default="tcp", choices=["tcp", "udp"], help="protocol for allowed ports")
     p_grant.add_argument("--target", action="append", default=[], help="CIDR or IP (repeatable)")
     p_grant.add_argument("--port", action="append", default=[], type=int, help="port (repeatable)")
 
@@ -285,7 +298,7 @@ def main() -> int:
             raise SystemExit("ERR: at least one --target is required")
         if not ports:
             ports = [443]
-        grant_install(root, args.token_id, args.nonce, args.exp, targets, ports, args.apply)
+        grant_install(root, args.token_id, args.nonce, args.exp, targets, ports, args.proto, args.apply)
         return 0
 
     raise SystemExit("ERR: unknown cmd")
