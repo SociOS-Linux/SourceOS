@@ -8,6 +8,7 @@ v0 scope:
 - Maintain a replay cache (sqlite) for grant nonces.
 - Maintain an allowlist state file for granted targets/ports + expiry.
 - Optional **explicit apply** mode that mutates nftables allowlist sets only.
+- Verification mode to ensure kernel nft set state matches allowlist state.
 
 Security posture:
 - local-first
@@ -41,6 +42,9 @@ Usage:
 
   # prune expired grants from state (and optionally apply)
   sudo python tools/sourceos_gate_egress.py prune --apply --store-root /var/lib/sourceos
+
+  # verify nft allow sets match state (requires nft; often requires root)
+  sudo python tools/sourceos_gate_egress.py verify --store-root /var/lib/sourceos
 """
 
 from __future__ import annotations
@@ -48,6 +52,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import time
@@ -170,12 +175,7 @@ def require_nft_baseline() -> None:
         raise SystemExit("ERR: nft baseline not found (missing chain inet sourceos output). Apply: sudo nft -f nft/sourceos-egress.nft")
 
 
-def apply_allowlists(root: Path) -> None:
-    if os.geteuid() != 0:
-        raise SystemExit("ERR: --apply requires root")
-
-    require_nft_baseline()
-
+def _compute_expected_sets(root: Path) -> tuple[set[str], set[str], set[str]]:
     state = _load_state(root)
     allow = state.get("allow") or []
     now = _now_epoch()
@@ -196,20 +196,84 @@ def apply_allowlists(root: Path) -> None:
             else:
                 tcp_ports.add(str(int(p)))
 
+    # Normalize /32 to bare IP for comparison (nft may display either form).
+    addrs = {a.replace("/32", "") for a in addrs}
+    return addrs, tcp_ports, udp_ports
+
+
+def _nft_set_elements_text(setname: str) -> set[str]:
+    res = _run(["nft", "list", "set", "inet", "sourceos", setname], check=False)
+    if res.returncode != 0:
+        raise SystemExit(f"ERR: unable to list nft set inet sourceos {setname}. Try running as root.")
+
+    m = re.search(r"elements\s*=\s*\{(.*?)\}\s*", res.stdout, flags=re.S)
+    if not m:
+        return set()
+
+    inside = m.group(1).strip()
+    if not inside:
+        return set()
+
+    parts = [p.strip() for p in inside.split(",")]
+    out = {p for p in parts if p}
+    return out
+
+
+def verify_allowlists(root: Path) -> None:
+    # Verify that active allowlist state matches the kernel allowlist sets.
+    require_nft_baseline()
+
+    exp_addrs, exp_tcp, exp_udp = _compute_expected_sets(root)
+
+    act_addrs = {a.replace("/32", "") for a in _nft_set_elements_text("frontier_allow_v4")}
+    act_tcp = {str(int(p)) for p in _nft_set_elements_text("frontier_allow_tcp_ports") if p.isdigit()}
+    act_udp = {str(int(p)) for p in _nft_set_elements_text("frontier_allow_udp_ports") if p.isdigit()}
+
+    problems: list[str] = []
+
+    if act_addrs != exp_addrs:
+        problems.append(f"frontier_allow_v4 mismatch: expected={sorted(exp_addrs)} actual={sorted(act_addrs)}")
+
+    if act_tcp != exp_tcp:
+        problems.append(f"frontier_allow_tcp_ports mismatch: expected={sorted(exp_tcp)} actual={sorted(act_tcp)}")
+
+    if act_udp != exp_udp:
+        problems.append(f"frontier_allow_udp_ports mismatch: expected={sorted(exp_udp)} actual={sorted(act_udp)}")
+
+    if problems:
+        for p in problems:
+            print("ERR:", p)
+        raise SystemExit(2)
+
+    print("OK: nft allow sets match allowlist.state.json")
+
+
+def apply_allowlists(root: Path) -> None:
+    if os.geteuid() != 0:
+        raise SystemExit("ERR: --apply requires root")
+
+    require_nft_baseline()
+
+    exp_addrs, exp_tcp, exp_udp = _compute_expected_sets(root)
+
     script_lines: list[str] = [
         "flush set inet sourceos frontier_allow_v4",
         "flush set inet sourceos frontier_allow_tcp_ports",
         "flush set inet sourceos frontier_allow_udp_ports",
     ]
 
-    if addrs:
-        script_lines.append("add element inet sourceos frontier_allow_v4 { " + ", ".join(sorted(addrs)) + " }")
+    if exp_addrs:
+        script_lines.append("add element inet sourceos frontier_allow_v4 { " + ", ".join(sorted(exp_addrs)) + " }")
 
-    if tcp_ports:
-        script_lines.append("add element inet sourceos frontier_allow_tcp_ports { " + ", ".join(sorted(tcp_ports)) + " }")
+    if exp_tcp:
+        script_lines.append(
+            "add element inet sourceos frontier_allow_tcp_ports { " + ", ".join(sorted(exp_tcp)) + " }"
+        )
 
-    if udp_ports:
-        script_lines.append("add element inet sourceos frontier_allow_udp_ports { " + ", ".join(sorted(udp_ports)) + " }")
+    if exp_udp:
+        script_lines.append(
+            "add element inet sourceos frontier_allow_udp_ports { " + ", ".join(sorted(exp_udp)) + " }"
+        )
 
     _run_nft_script("\n".join(script_lines) + "\n")
 
@@ -219,9 +283,9 @@ def apply_allowlists(root: Path) -> None:
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "module": "sourceos-gate-egress",
             "action": "apply_allowlists",
-            "frontier_allow_v4": sorted(addrs),
-            "frontier_allow_tcp_ports": sorted(tcp_ports),
-            "frontier_allow_udp_ports": sorted(udp_ports),
+            "frontier_allow_v4": sorted(exp_addrs),
+            "frontier_allow_tcp_ports": sorted(exp_tcp),
+            "frontier_allow_udp_ports": sorted(exp_udp),
         },
     )
 
@@ -275,6 +339,7 @@ def main() -> int:
     p_grant.add_argument("--port", action="append", default=[], type=int, help="port (repeatable)")
 
     sub.add_parser("prune")
+    sub.add_parser("verify")
 
     args = ap.parse_args()
     root = Path(args.store_root)
@@ -282,6 +347,10 @@ def main() -> int:
     if args.cmd == "init":
         init_store(root)
         print(str(_db_path(root)))
+        return 0
+
+    if args.cmd == "verify":
+        verify_allowlists(root)
         return 0
 
     if args.cmd == "prune":
