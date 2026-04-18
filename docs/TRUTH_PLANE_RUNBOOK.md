@@ -51,6 +51,13 @@ SOURCEOS_SPEC_DIR=~/dev/sourceos-spec \
   python tools/sourceos_truth_plane_smoke.py --store-root /tmp/sourceos-smoke --deterministic --validate
 ```
 
+Offline egress apply+verify demo (requires baseline applied + root):
+
+```bash
+sudo nft -f nft/sourceos-egress.nft
+sudo python tools/sourceos_truth_plane_smoke.py --store-root /tmp/sourceos-smoke --egress-demo
+```
+
 ---
 
 ## 0b) Tick orchestrator (periodic surfaces + delta)
@@ -149,6 +156,14 @@ sudo python tools/sourceos_gate_egress.py grant --apply --proto udp --store-root
 ```bash
 python tools/sourceos_gate_egress.py prune --store-root /tmp/sourceos
 sudo python tools/sourceos_gate_egress.py prune --apply --store-root /tmp/sourceos
+```
+
+---
+
+## 3c) Verify nft allow sets match allowlist state
+
+```bash
+sudo python tools/sourceos_gate_egress.py verify --store-root /tmp/sourceos
 ```
 
 ---
