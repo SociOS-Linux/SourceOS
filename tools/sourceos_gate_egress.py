@@ -201,7 +201,16 @@ def _compute_expected_sets(root: Path) -> tuple[set[str], set[str], set[str]]:
     return addrs, tcp_ports, udp_ports
 
 
-def _nft_set_elements_json_from_obj(obj: dict) -> set[str] | None:
+def parse_nft_set_elements_json(obj: dict) -> set[str] | None:
+    """Extract a flat set of element values from `nft -j` JSON output.
+
+    This is used by:
+    - `verify` path (when nft JSON mode is available)
+    - fixtures-based parser tests under `tools/test_nft_json_parse.py`
+
+    The parser is intentionally best-effort across nft versions.
+    """
+
     nftables = obj.get("nftables")
     if not isinstance(nftables, list):
         return None
@@ -212,6 +221,7 @@ def _nft_set_elements_json_from_obj(obj: dict) -> set[str] | None:
         if not isinstance(entry, dict):
             continue
 
+        # Common structure: entry {"set": {"elem": [ {"elem": <val>}, ... ]}}
         if "set" in entry and isinstance(entry["set"], dict):
             s = entry["set"]
             raw = s.get("elem")
@@ -226,6 +236,7 @@ def _nft_set_elements_json_from_obj(obj: dict) -> set[str] | None:
                     elif it is not None:
                         elems.append(str(it))
 
+        # Alternate structure: entry {"elem": {"set": "<name>", "elem": <val>}}
         if "elem" in entry and isinstance(entry["elem"], dict):
             e = entry["elem"]
             v = e.get("elem")
@@ -235,6 +246,10 @@ def _nft_set_elements_json_from_obj(obj: dict) -> set[str] | None:
                 elems.append(str(v))
 
     return {e.strip() for e in elems if str(e).strip()}
+
+
+# Back-compat: retained for one release; use parse_nft_set_elements_json going forward.
+_nft_set_elements_json_from_obj = parse_nft_set_elements_json  # type: ignore
 
 
 def _nft_set_elements_json(setname: str) -> set[str] | None:
@@ -247,7 +262,7 @@ def _nft_set_elements_json(setname: str) -> set[str] | None:
     except Exception:
         return None
 
-    return _nft_set_elements_json_from_obj(obj)
+    return parse_nft_set_elements_json(obj)
 
 
 def _nft_set_elements_text(setname: str) -> set[str]:
