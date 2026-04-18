@@ -20,3 +20,12 @@ Immutable, local-first OS substrate (workstation + edge) with verifiable policy 
   - public docs site
   - canonical typed-contract registry
 - **Semantic direction:** this repo should eventually publish a substrate-focused repo descriptor that references the shared SourceOS/SociOS vocabulary from `sourceos-spec`.
+
+## Developer validation
+
+See `docs/DEV_VALIDATE.md` for the minimal v0 Truth Plane validation steps:
+
+- smoke harness (no privilege)
+- optional schema validation (local `sourceos-spec` checkout)
+- offline egress apply+verify demo (requires root)
+- nft `-j` parser fixtures test (no privilege)
