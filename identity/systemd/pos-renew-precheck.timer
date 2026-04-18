@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic renewal substrate precheck
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=12h
+Unit=pos-renew-precheck.service
+
+[Install]
+WantedBy=timers.target
