@@ -201,24 +201,13 @@ def _compute_expected_sets(root: Path) -> tuple[set[str], set[str], set[str]]:
     return addrs, tcp_ports, udp_ports
 
 
-def _nft_set_elements_json(setname: str) -> set[str] | None:
-    # Prefer JSON mode where available; fall back to text parsing.
-    res = _run(["nft", "-j", "list", "set", "inet", "sourceos", setname], check=False)
-    if res.returncode != 0:
-        return None
-
-    try:
-        obj = json.loads(res.stdout)
-    except Exception:
-        return None
-
+def _nft_set_elements_json_from_obj(obj: dict) -> set[str] | None:
     nftables = obj.get("nftables")
     if not isinstance(nftables, list):
         return None
 
     elems: list[str] = []
 
-    # Common structure: entry {"set": {"elem": [ {"elem": <val>}, ... ]}}
     for entry in nftables:
         if not isinstance(entry, dict):
             continue
@@ -237,12 +226,8 @@ def _nft_set_elements_json(setname: str) -> set[str] | None:
                     elif it is not None:
                         elems.append(str(it))
 
-        # Alternate structure: entry {"elem": {"set": "<name>", "elem": <val>}}
         if "elem" in entry and isinstance(entry["elem"], dict):
             e = entry["elem"]
-            setref = e.get("set")
-            if isinstance(setref, str) and setref != setname:
-                continue
             v = e.get("elem")
             if isinstance(v, dict) and "val" in v:
                 v = v.get("val")
@@ -250,6 +235,19 @@ def _nft_set_elements_json(setname: str) -> set[str] | None:
                 elems.append(str(v))
 
     return {e.strip() for e in elems if str(e).strip()}
+
+
+def _nft_set_elements_json(setname: str) -> set[str] | None:
+    res = _run(["nft", "-j", "list", "set", "inet", "sourceos", setname], check=False)
+    if res.returncode != 0:
+        return None
+
+    try:
+        obj = json.loads(res.stdout)
+    except Exception:
+        return None
+
+    return _nft_set_elements_json_from_obj(obj)
 
 
 def _nft_set_elements_text(setname: str) -> set[str]:
@@ -278,7 +276,6 @@ def _nft_set_elements(setname: str) -> set[str]:
 
 
 def verify_allowlists(root: Path) -> None:
-    # Verify that active allowlist state matches the kernel allowlist sets.
     require_nft_baseline()
 
     exp_addrs, exp_tcp, exp_udp = _compute_expected_sets(root)
