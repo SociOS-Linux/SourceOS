@@ -1,0 +1,16 @@
+{
+  "nftables": [
+    {"metainfo": {"json_schema_version": 1}},
+    {"set": {
+      "family": "inet",
+      "table": "sourceos",
+      "name": "frontier_allow_v4",
+      "type": "ipv4_addr",
+      "flags": ["interval"],
+      "elem": [
+        {"elem": "10.0.0.1"},
+        {"elem": "10.0.0.2"}
+      ]
+    }}
+  ]
+}
