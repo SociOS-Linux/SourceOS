@@ -1,0 +1,6 @@
+[Unit]
+Description=Proof-of-Self renewal substrate precheck
+
+[Service]
+Type=oneshot
+ExecStart=%h/SourceOS/identity/bin/sourceos-pos-secureboot-state %h/SourceOS/identity/state/secureboot_state.txt
