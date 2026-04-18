@@ -1,0 +1,16 @@
+{
+  "nftables": [
+    {"metainfo": {"json_schema_version": 1}},
+    {"set": {
+      "family": "inet",
+      "table": "sourceos",
+      "name": "frontier_allow_tcp_ports",
+      "type": "inet_service",
+      "flags": ["interval"],
+      "elem": [
+        {"elem": 11},
+        {"elem": 17}
+      ]
+    }}
+  ]
+}
