@@ -42,3 +42,4 @@ python tools/test_nft_json_parse.py
 
 - v0 targets are IP/CIDR. Hostname pinning is deferred.
 - v0 signatures are deterministic dev placeholders until we wire a real signer.
+- Deprecation: `_nft_set_elements_json_from_obj` is a compatibility alias and will be removed after v0.1.
