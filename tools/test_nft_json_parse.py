@@ -32,16 +32,22 @@ def _assert_eq(label: str, actual, expected) -> None:
 
 def main() -> int:
     v4 = _load_fixture("nft_set_frontier_allow_v4.json")
-    tcp = _load_fixture("nft_set_frontier_allow_tcp_ports.json")
+    tcp_str = _load_fixture("nft_set_frontier_allow_tcp_ports.json")
+    tcp_int = _load_fixture("nft_set_frontier_allow_tcp_ports_int.json")
     udp = _load_fixture("nft_set_frontier_allow_udp_ports.json")
 
     # Use the internal parser helper. It may return None for unrecognized shapes.
     a_v4 = gate._nft_set_elements_json_from_obj(v4)  # type: ignore
-    a_tcp = gate._nft_set_elements_json_from_obj(tcp)  # type: ignore
+    a_tcp_str = gate._nft_set_elements_json_from_obj(tcp_str)  # type: ignore
+    a_tcp_int = gate._nft_set_elements_json_from_obj(tcp_int)  # type: ignore
     a_udp = gate._nft_set_elements_json_from_obj(udp)  # type: ignore
 
     _assert_eq("v4", sorted(a_v4), ["10.0.0.1", "10.0.0.2"])
-    _assert_eq("tcp", sorted(a_tcp), ["443", "8443"])
+
+    # Our parser normalizes elements to strings.
+    _assert_eq("tcp(str)", sorted(a_tcp_str), ["443", "8443"])
+    _assert_eq("tcp(int)", sorted(a_tcp_int), ["11", "17"])
+
     _assert_eq("udp", sorted(a_udp), ["53"])
 
     print("OK: nft -j parsing fixtures")
