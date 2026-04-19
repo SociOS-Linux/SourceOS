@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Run the SourceOS egress gate daemon.
-
-This is a host-local Unix socket service.
-
-Example:
-  python tools/sourceos_gate_egressd.py --store-root /var/lib/sourceos --socket /run/sourceos/gate-egress.sock
-"""
+"""Run the SourceOS egress gate daemon."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from pathlib import Path
 
-from sourceos_gate.daemon import DaemonConfig, serve
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = REPO_ROOT / "src"
+if SRC_DIR.is_dir() and str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from sourceos_gate.daemon import DaemonConfig, serve  # noqa: E402
 
 
 def main() -> int:
