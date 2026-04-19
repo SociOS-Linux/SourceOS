@@ -30,10 +30,18 @@ sudo nft -f nft/sourceos-egress.nft && \
 
 ---
 
-## 3) nft -j parser fixtures (no privilege)
+## 3) Parser fixtures (no privilege)
 
 ```bash
 python tools/test_nft_json_parse.py
+```
+
+---
+
+## 4) Unit tests (no privilege)
+
+```bash
+python -m unittest discover -s tests
 ```
 
 ---
