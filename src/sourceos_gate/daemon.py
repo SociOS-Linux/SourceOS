@@ -4,15 +4,20 @@ Runs a local Unix socket server and serves one-JSON-per-line requests.
 
 This is intended for host-local orchestration (systemd socket activation or
 static socket path), and is not exposed to the network.
+
+Security model:
+- Authentication is by filesystem permissions on the unix socket.
+- This daemon must not listen on TCP.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
+import socket as pysocket
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from .egress import EgressGate
 from .protocol import err_response, map_error, ok_response, require_fields
@@ -26,7 +31,6 @@ class DaemonConfig:
 
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, gate: EgressGate) -> None:
-    peer = writer.get_extra_info("peername")
     try:
         while not reader.at_eof():
             line = await reader.readline()
@@ -89,15 +93,46 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             pass
 
 
+def _systemd_listen_fds() -> list[int]:
+    """Return systemd-passed listening fds, if present.
+
+    Systemd socket activation (sd_listen_fds) passes sockets starting at fd 3.
+    We implement the minimum required logic to avoid adding dependencies.
+    """
+
+    try:
+        listen_pid = int(os.environ.get("LISTEN_PID", "0"))
+        listen_fds = int(os.environ.get("LISTEN_FDS", "0"))
+    except ValueError:
+        return []
+
+    if listen_pid != os.getpid() or listen_fds <= 0:
+        return []
+
+    return list(range(3, 3 + listen_fds))
+
+
 async def serve(cfg: DaemonConfig) -> None:
+    gate = EgressGate.for_root(cfg.store_root)
+    gate.init()
+
+    fds = _systemd_listen_fds()
+    if fds:
+        # Prefer systemd socket activation. Use the first fd.
+        fd = fds[0]
+        sock = pysocket.socket(fileno=fd)
+        sock.setblocking(False)
+
+        server = await asyncio.start_unix_server(lambda r, w: handle_client(r, w, gate), sock=sock)
+        async with server:
+            await server.serve_forever()
+        return
+
+    # Fallback: create a unix socket at cfg.socket_path.
     cfg.socket_path.parent.mkdir(parents=True, exist_ok=True)
     if cfg.socket_path.exists():
         cfg.socket_path.unlink()
 
-    gate = EgressGate.for_root(cfg.store_root)
-    gate.init()
-
     server = await asyncio.start_unix_server(lambda r, w: handle_client(r, w, gate), path=str(cfg.socket_path))
-
     async with server:
         await server.serve_forever()
