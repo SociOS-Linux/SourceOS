@@ -1,0 +1,33 @@
+[Unit]
+Description=SourceOS egress gate daemon (Unix socket)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Store root for state/audit.
+Environment=SOURCEOS_STORE_ROOT=/var/lib/sourceos
+
+# Systemd socket activation passes the listening FD (LISTEN_FDS) to the service.
+Environment=LISTEN_PID=%p
+
+# Run daemon; it will use systemd socket activation when available.
+ExecStart=/usr/bin/env python3 /usr/lib/sourceos/tools/sourceos_gate_egressd.py --store-root ${SOURCEOS_STORE_ROOT}
+
+Restart=on-failure
+RestartSec=2
+
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/sourceos /run/sourceos
+
+# Needs nft mutation when applying; run as root (socket perms gate callers).
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
