@@ -9,8 +9,9 @@ Type=simple
 # Store root for state/audit.
 Environment=SOURCEOS_STORE_ROOT=/var/lib/sourceos
 
-# Systemd socket activation passes the listening FD (LISTEN_FDS) to the service.
-Environment=LISTEN_PID=%p
+# Create /run/sourceos for the socket path if needed.
+RuntimeDirectory=sourceos
+RuntimeDirectoryMode=0755
 
 # Run daemon; it will use systemd socket activation when available.
 ExecStart=/usr/bin/env python3 /usr/lib/sourceos/tools/sourceos_gate_egressd.py --store-root ${SOURCEOS_STORE_ROOT}
@@ -24,6 +25,9 @@ PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
 ReadWritePaths=/var/lib/sourceos /run/sourceos
+
+# The daemon must not listen on TCP; it only needs unix sockets + netlink (nft).
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
 
 # Needs nft mutation when applying; run as root (socket perms gate callers).
 User=root
