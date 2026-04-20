@@ -1,0 +1,12 @@
+[Unit]
+Description=SourceOS egress gate socket (Unix)
+
+[Socket]
+ListenStream=/run/sourceos/gate-egress.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=sourceos
+RemoveOnStop=true
+
+[Install]
+WantedBy=sockets.target
