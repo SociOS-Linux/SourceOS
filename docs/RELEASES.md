@@ -48,6 +48,7 @@ We consider **Truth Plane v0.1** achieved when:
 - A compatibility alias remains for at least one minor cycle.
 
 Example:
+
 - `_nft_set_elements_json_from_obj` is a compatibility alias for `parse_nft_set_elements_json` and will be removed after v0.1.
 
 ---
