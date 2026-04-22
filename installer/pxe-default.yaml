@@ -1,0 +1,14 @@
+apiVersion: sourceos.ai/v0
+kind: InstallerProfile
+metadata:
+  name: pxe-default
+  labels:
+    surface: pxe
+spec:
+  baseArtifact: fcos-live-pxe
+  transport: uefi-http-boot
+  ignitionMode: dest-only
+  kernelArgs:
+    - ignition.firstboot
+    - ignition.platform.id=metal
+  enrollmentProfileRef: urn:srcos:enrollment-profile:default-workstation
