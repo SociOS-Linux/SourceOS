@@ -1,0 +1,22 @@
+{
+  "id": "urn:srcos:release:sourceos-workstation-dev-0001",
+  "type": "ReleaseManifest",
+  "specVersion": "2.0.0",
+  "sourceBuildRequestRef": "urn:srcos:build-request:sourceos-workstation-dev-0001",
+  "artifactRefs": [
+    "artifacts/sourceos-workstation-dev.iso"
+  ],
+  "artifactHashes": [
+    "sha256:REPLACE_WITH_REAL_DIGEST"
+  ],
+  "sbomRefs": [],
+  "evidenceRefs": [],
+  "labels": {
+    "flavor": "sourceos-workstation",
+    "channel": "dev",
+    "surface": "live-usb"
+  },
+  "channel": "dev",
+  "status": "draft",
+  "createdAt": "1970-01-01T00:00:00Z"
+}
