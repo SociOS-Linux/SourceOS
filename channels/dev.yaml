@@ -1,0 +1,13 @@
+apiVersion: sourceos.ai/v0
+kind: ReleaseChannel
+metadata:
+  name: dev
+spec:
+  description: Development and integration ring for pre-production SourceOS artifacts.
+  promotionTargets:
+    - qa
+  allowedFlavors:
+    - sourceos-workstation
+  defaultInstallerProfiles:
+    - live-usb-default
+    - pxe-default
