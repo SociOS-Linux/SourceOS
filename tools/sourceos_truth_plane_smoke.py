@@ -5,16 +5,16 @@ This script is the local, deterministic(ish) integration proof for the Truth Pla
 
 It performs:
 
-1) init store root (replay cache + allowlist)
+1) init store root
 2) emit TruthSurface ts0
 3) emit TruthSurface ts1
 4) emit DeltaSurface ds(ts0, ts1)
 5) emit incident.freeze event object
 6) optional schema validation if jsonschema is available AND SOURCEOS_SPEC_DIR points to a local sourceos-spec checkout
 7) optional offline egress demo (requires baseline + root):
-   - writes a TCP and UDP grant to state
+   - installs a TCP and UDP grant into sqlite state
    - applies allowlist sets
-   - verifies kernel nft state matches allowlist state
+   - verifies kernel nft state matches expected state
 
 No other privileged operations are performed:
 - no services are paused
@@ -35,12 +35,20 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
-from tools import sourceos_gate_egress as gate  # type: ignore
-from tools import sourceos_truth_surface as ts  # type: ignore
-from tools import sourceos_delta_surface as ds  # type: ignore
+# Ensure repo-local src/ is importable without packaging.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = REPO_ROOT / "src"
+if SRC_DIR.is_dir() and str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from sourceos_gate.egress import EgressGate  # noqa: E402
+
+from tools import sourceos_truth_surface as ts  # type: ignore  # noqa: E402
+from tools import sourceos_delta_surface as ds  # type: ignore  # noqa: E402
 
 
 def _ensure_dir(p: Path) -> None:
@@ -60,7 +68,8 @@ def _schema_paths(spec_dir: Path) -> dict[str, Path]:
     return {
         "TruthSurface": spec_dir / "schemas" / "TruthSurface.json",
         "DeltaSurface": spec_dir / "schemas" / "DeltaSurface.json",
-        "IncidentEvent": spec_dir / "schemas" / "control-plane" / "incident-events.schema.json",
+        # Canonical IncidentEvent is the wrapper.
+        "IncidentEvent": spec_dir / "schemas" / "control-plane" / "IncidentEvent.json",
     }
 
 
@@ -97,7 +106,8 @@ def main() -> int:
     args = ap.parse_args()
     root = Path(args.store_root)
 
-    gate.init_store(root)
+    gate = EgressGate.for_root(root)
+    gate.init()
 
     ts0_id = "urn:srcos:truth-surface:ts_smoke_0000" if args.deterministic else None
     ts1_id = "urn:srcos:truth-surface:ts_smoke_0001" if args.deterministic else None
@@ -205,13 +215,11 @@ def main() -> int:
         if os.geteuid() != 0:
             raise SystemExit("ERR: --egress-demo requires root")
 
-        # Offline-only demo: use RFC1918 target so this doesn't attempt real egress.
         exp = int(time.time()) + 3600
-        gate.grant_install(root, "tok_smoke_tcp", "n_tcp", exp, ["10.0.0.1/32"], [443], "tcp", apply=False)
-        gate.grant_install(root, "tok_smoke_udp", "n_udp", exp, ["10.0.0.1/32"], [53], "udp", apply=False)
-
-        gate.apply_allowlists(root)
-        gate.verify_allowlists(root)
+        gate.install_grant("tok_smoke_tcp", "n_tcp", exp, ["10.0.0.1/32"], [443], "tcp", apply=False)
+        gate.install_grant("tok_smoke_udp", "n_udp", exp, ["10.0.0.1/32"], [53], "udp", apply=False)
+        gate.apply()
+        gate.verify()
 
     print("OK:")
     print(f"  ts0: {p0}")
