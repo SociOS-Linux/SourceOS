@@ -3,6 +3,7 @@
 This directory is the landing zone for FCOS/SourceOS image composition source material.
 
 It should eventually contain:
+
 - config-git inputs for coreos-assembler
 - tree/manifests for thicker derivative lanes
 - release-build metadata and helper notes

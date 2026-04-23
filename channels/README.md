@@ -3,6 +3,7 @@
 This directory holds SourceOS release-channel declarations.
 
 A channel defines the logical promotion lane for artifact families such as:
+
 - dev
 - qa
 - prod

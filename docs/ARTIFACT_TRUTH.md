@@ -22,6 +22,7 @@ This repo owns the definitions of **what** gets built and released, not the auto
 - generic execution control plane behavior
 
 Those belong respectively in:
+
 - `SociOS-Linux/socios`
 - `SociOS-Linux/workstation-contracts`
 - `SocioProphet/sociosphere`
@@ -40,6 +41,7 @@ Those belong respectively in:
 ## Follow-on
 
 Subsequent changes should:
+
 - replace stubs with canonical flavor and installer schemas aligned to `sourceos-spec`
 - bind artifact manifests to `ReleaseManifest` / `EvidenceBundle` families
 - add FCOS-specific build-source structure under `cosa/`
