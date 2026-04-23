@@ -3,6 +3,8 @@
 This runbook assumes the v0 tools exist in `tools/`:
 
 - `tools/sourceos_gate_egress.py`
+- `tools/sourceos_gate_egressd.py`
+- `tools/sourceos_gate_egressctl.py`
 - `tools/sourceos_truth_surface.py`
 - `tools/sourceos_delta_surface.py`
 - `tools/sourceos_incident.py`
@@ -60,7 +62,37 @@ sudo python tools/sourceos_truth_plane_smoke.py --store-root /tmp/sourceos-smoke
 
 ---
 
-## 0b) Tick orchestrator (periodic surfaces + delta)
+## 0b) Daemon mode (recommended for host operation)
+
+The egress gate can run as a host-local unix socket daemon.
+
+### Start the daemon (dev)
+
+```bash
+sudo python tools/sourceos_gate_egressd.py --store-root /var/lib/sourceos --socket /run/sourceos/gate-egress.sock
+```
+
+### Talk to the daemon
+
+```bash
+python tools/sourceos_gate_egressctl.py --socket /run/sourceos/gate-egress.sock health
+python tools/sourceos_gate_egressctl.py snapshot
+python tools/sourceos_gate_egressctl.py grant --token-id tok --nonce n1 --exp 9999999999 --proto tcp --target 1.2.3.4/32 --port 443 --apply
+python tools/sourceos_gate_egressctl.py verify
+```
+
+### systemd socket activation (packaging lane)
+
+If deployed via systemd socket activation, use:
+
+- `systemd/sourceos-gate-egress.socket`
+- `systemd/sourceos-gate-egress.service`
+
+The daemon will use `LISTEN_FDS` when present.
+
+---
+
+## 0c) Tick orchestrator (periodic surfaces + delta)
 
 The tick orchestrator is the unit of periodic work intended for systemd timers. It:
 
@@ -109,60 +141,13 @@ Then the gate can apply allowlist changes by mutating only the allow sets.
 
 ---
 
-## 3) Install a dry-run egress grant
+## 3) CLI mode (direct)
 
 ```bash
-# exp is epoch seconds
-python tools/sourceos_gate_egress.py grant --store-root /tmp/sourceos \
-  --token-id tok_demo --nonce n_0001 --exp 1893456000 \
-  --target 1.2.3.4/32 --port 443
-```
-
-Expected:
-
-- updates allowlist.state.json
-- rejects replay of the same token+nonce
-
----
-
-## 3a) Install and apply a TCP grant (requires root)
-
-```bash
+python tools/sourceos_gate_egress.py init --store-root /tmp/sourceos
 sudo python tools/sourceos_gate_egress.py grant --apply --proto tcp --store-root /tmp/sourceos \
   --token-id tok_demo --nonce n_0002 --exp 1893456000 \
   --target 1.2.3.4/32 --port 443
-```
-
-Expected:
-
-- updates allowlist.state.json
-- applies allowlist sets to nft (no ruleset flush)
-- writes an audit line under `/tmp/sourceos/audit/events/<date>/gate.egress.ndjson`
-
----
-
-## 3a-udp) Install and apply a UDP grant (DNS example)
-
-```bash
-sudo python tools/sourceos_gate_egress.py grant --apply --proto udp --store-root /tmp/sourceos \
-  --token-id tok_dns --nonce n_dns --exp 1893456000 \
-  --target 1.1.1.1/32 --port 53
-```
-
----
-
-## 3b) Prune expired grants (and optionally apply)
-
-```bash
-python tools/sourceos_gate_egress.py prune --store-root /tmp/sourceos
-sudo python tools/sourceos_gate_egress.py prune --apply --store-root /tmp/sourceos
-```
-
----
-
-## 3c) Verify nft allow sets match allowlist state
-
-```bash
 sudo python tools/sourceos_gate_egress.py verify --store-root /tmp/sourceos
 ```
 
