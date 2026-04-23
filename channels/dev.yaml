@@ -1,5 +1,6 @@
 ---
 apiVersion: sourceos.ai/v0
+kind: ReleaseChannel
 metadata:
   name: dev
 spec:

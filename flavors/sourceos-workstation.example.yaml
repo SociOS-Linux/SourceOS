@@ -1,5 +1,6 @@
 ---
 apiVersion: sourceos.ai/v0
+kind: Flavor
 metadata:
   name: sourceos-workstation
   labels:

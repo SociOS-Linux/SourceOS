@@ -1,5 +1,6 @@
 ---
 apiVersion: sourceos.ai/v0
+kind: InstallerProfile
 metadata:
   name: live-usb-default
   labels:
