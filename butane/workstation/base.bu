@@ -1,0 +1,12 @@
+variant: fcos
+version: 1.6.0
+passwd:
+  users:
+    - name: sourceos
+      groups:
+        - wheel
+      ssh_authorized_keys: []
+storage:
+  files: []
+systemd:
+  units: []

@@ -1,0 +1,22 @@
+---
+apiVersion: sourceos.ai/v0
+kind: Flavor
+metadata:
+  name: sourceos-workstation
+  labels:
+    family: workstation
+    substrate: fcos
+spec:
+  baseStream: stable
+  architecture:
+    - x86_64
+  buildMode: thin-personalization
+  releaseChannels:
+    - dev
+    - qa
+    - prod
+  installerProfiles:
+    - live-usb-default
+    - pxe-default
+  butaneRefs:
+    - butane/workstation/base.bu

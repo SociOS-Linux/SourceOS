@@ -1,0 +1,13 @@
+---
+apiVersion: sourceos.ai/v0
+kind: InstallerProfile
+metadata:
+  name: live-usb-default
+  labels:
+    surface: live-usb
+spec:
+  baseArtifact: fcos-live-iso
+  ignitionMode: embed-live-and-dest
+  networkMode: optional-keyfiles
+  secureBoot: true
+  enrollmentProfileRef: urn:srcos:enrollment-profile:default-workstation
