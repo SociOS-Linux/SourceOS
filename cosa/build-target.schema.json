@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sourceos.ai/schemas/cosa/build-target.schema.json",
+  "title": "BuildTarget",
+  "description": "Descriptor for a single coreos-assembler (COSA) build target. It binds a SourceOS flavor, an OSTree ref, and a package manifest to a concrete set of output artifacts for one architecture. This is artifact-truth input: it declares WHAT cosa should produce. Build orchestration and promotion live downstream in SociOS-Linux/socios.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "sourceos.ai/v0"
+    },
+    "kind": {
+      "type": "string",
+      "const": "BuildTarget"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Stable target name, e.g. sourceos-workstation-dev-x86_64.",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "labels": {
+          "type": "object",
+          "description": "Free-form routing labels (flavor, channel, surface).",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flavorRef", "ostreeRef", "packageManifestRef", "architecture", "outputFormats"],
+      "properties": {
+        "flavorRef": {
+          "type": "string",
+          "description": "Path to the Flavor descriptor this target composes, relative to repo root.",
+          "examples": ["flavors/sourceos-workstation.example.yaml"]
+        },
+        "ostreeRef": {
+          "type": "string",
+          "description": "OSTree ref / branch the composed tree is committed to.",
+          "examples": ["sourceos/x86_64/workstation/stable"]
+        },
+        "packageManifestRef": {
+          "type": "string",
+          "description": "Path to the top-level cosa/rpm-ostree manifest (manifest.yaml / treefile) consumed by `cosa build`, relative to repo root.",
+          "examples": ["cosa/manifests/sourceos-workstation.yaml"]
+        },
+        "architecture": {
+          "type": "string",
+          "description": "Target architecture. Note: COSA must run on a build host of this arch (cross-build is not supported by this wrapper).",
+          "enum": ["x86_64", "aarch64"]
+        },
+        "baseStream": {
+          "type": "string",
+          "description": "Upstream FCOS stream the substrate derives from. Advisory; the manifest is authoritative.",
+          "enum": ["stable", "testing", "next"],
+          "default": "stable"
+        },
+        "outputFormats": {
+          "type": "array",
+          "description": "Artifact formats cosa should build. Each maps to a `cosa buildextend-<fmt>` (or the base `cosa build` for ostree/qemu).",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["ostree", "qemu", "metal", "iso", "qcow2", "oci", "raw"]
+          },
+          "uniqueItems": true
+        },
+        "katelloRepos": {
+          "type": "object",
+          "description": "Maps output formats to the Katello custom-file repo each artifact is uploaded into downstream. Read by the wiring layer in socios; the format keys MUST be a subset of outputFormats.",
+          "additionalProperties": false,
+          "properties": {
+            "iso": { "type": "string", "default": "sourceos-live-iso" },
+            "qcow2": { "type": "string", "default": "sourceos-disk-images" },
+            "raw": { "type": "string", "default": "sourceos-disk-images" },
+            "metal": { "type": "string", "default": "sourceos-disk-images" },
+            "oci": { "type": "string", "default": "sourceos-container-images" }
+          }
+        },
+        "channel": {
+          "type": "string",
+          "description": "Release channel this build targets. Matches channels/<name>.yaml.",
+          "examples": ["dev", "qa", "prod"]
+        },
+        "signing": {
+          "type": "object",
+          "description": "Artifact signing posture. TODO(cosign): signing is wired by a separate task; this block is descriptor-only and currently advisory.",
+          "additionalProperties": false,
+          "properties": {
+            "provider": { "type": "string", "enum": ["cosign"], "default": "cosign" },
+            "enabled": { "type": "boolean", "default": false }
+          }
+        }
+      }
+    }
+  }
+}

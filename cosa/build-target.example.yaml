@@ -1,0 +1,38 @@
+---
+# Example COSA build target.
+#
+# A BuildTarget binds a flavor + OSTree ref + package manifest to a concrete set
+# of output artifacts for one architecture. It is artifact-truth input: it
+# declares WHAT coreos-assembler should produce. Validate it with:
+#
+#   python cosa/build.py validate --target cosa/build-target.example.yaml
+#
+# Build orchestration and Katello promotion live downstream in SociOS-Linux/socios.
+apiVersion: sourceos.ai/v0
+kind: BuildTarget
+metadata:
+  name: sourceos-workstation-dev-x86_64
+  labels:
+    flavor: sourceos-workstation
+    channel: dev
+    surface: live-usb
+spec:
+  flavorRef: flavors/sourceos-workstation.example.yaml
+  ostreeRef: sourceos/x86_64/workstation/stable
+  packageManifestRef: cosa/manifests/sourceos-workstation.yaml
+  architecture: x86_64
+  baseStream: stable
+  outputFormats:
+    - ostree
+    - qemu
+    - iso
+    - qcow2
+  # Maps each format to the Katello custom-file repo it lands in downstream.
+  # Consumed by the socios publish lane; keys must be a subset of outputFormats.
+  katelloRepos:
+    iso: sourceos-live-iso
+    qcow2: sourceos-disk-images
+  channel: dev
+  signing:
+    provider: cosign
+    enabled: false  # TODO(cosign): wired by a separate task.
