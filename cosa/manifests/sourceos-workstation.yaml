@@ -1,0 +1,25 @@
+# SourceOS Workstation package manifest (rpm-ostree / coreos-assembler treefile).
+#
+# This is the top-level manifest `cosa build` consumes for the
+# sourceos-workstation flavor. It is a STUB: it declares the shape and the
+# derivation point, not a complete package set. Thicker package lists and
+# overlays are filled in as the workstation lane matures.
+#
+# Referenced by: cosa/build-target.example.yaml (spec.packageManifestRef).
+ref: sourceos/x86_64/workstation/stable
+
+# Derive from the upstream Fedora CoreOS manifest, then layer SourceOS overlays.
+# TODO: vendor or submodule the FCOS config and point this include at it.
+# include: fedora-coreos.yaml
+
+rojig:
+  license: MIT
+  name: sourceos-workstation
+  summary: SourceOS Workstation substrate
+
+# Minimal placeholder package set. Replace with the real workstation manifest.
+packages:
+  - kernel
+  - systemd
+  - ostree
+  - rpm-ostree
