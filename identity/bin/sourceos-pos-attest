@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+NONCE=${1:-}
+OUT=${2:-attest_baseline}
+mkdir -p "$OUT"
+tpm2_pcrread sha256:0,7,10 > "$OUT/pcrs.txt" || true
+cp /sys/kernel/security/ima/ascii_runtime_measurements "$OUT/ima.txt" 2>/dev/null || true
+echo "nonce=${NONCE}" > "$OUT/nonce.txt"
+echo "collected substrate identity hooks into $OUT"

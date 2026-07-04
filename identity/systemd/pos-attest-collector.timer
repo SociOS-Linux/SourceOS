@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic substrate attestation collection
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60min
+Unit=pos-attest-collector.service
+
+[Install]
+WantedBy=timers.target

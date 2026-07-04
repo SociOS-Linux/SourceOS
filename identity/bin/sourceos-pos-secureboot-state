@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+OUT=${1:-secureboot_state.txt}
+if command -v mokutil >/dev/null 2>&1; then
+  mokutil --sb-state > "$OUT"
+else
+  echo "mokutil unavailable" > "$OUT"
+fi
+echo "$OUT"

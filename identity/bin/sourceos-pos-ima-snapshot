@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+OUT=${1:-ima_snapshot.txt}
+cp /sys/kernel/security/ima/ascii_runtime_measurements "$OUT"
+echo "$OUT"
