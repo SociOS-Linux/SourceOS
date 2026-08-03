@@ -34,29 +34,39 @@ Docker "share data among machines" picture, native, with the deltas being exactl
 the snapshot increments. This is the managed-network face; it is an OS/fabric
 capability, not an app feature.
 
-**4. Owned Go tooling exists, license-clean.** `dennwc/btrfs` (pure-Go btrfs
-ioctls) is **Apache-2.0** (dep `dennwc/ioctl` MIT) — passes the MIT/Apache gate
-and is the enhance-our-own base so the daemon carries no external runtime
-dependency. `libbtrfsutil` is the C reference. The spike shells the `btrfs`
-binary as a stand-in; the owned path swaps in dennwc/btrfs.
+**4. Owned Go tooling, license-clean — now in use.** `dennwc/btrfs` (pure-Go
+btrfs ioctls, **Apache-2.0**; dep `dennwc/ioctl` MIT) passes the gate and carries
+no external runtime dependency (no shell-out to a distro `btrfs`). The Linux
+backend calls `SnapshotSubVolume`, `DeleteSubVolume`, and `Send`/`Receive`
+directly.
 
 ## Shape in this repo
 
-`backend.Snapshotter` is the seam: `Snapshot(purpose) → Version{ID,Ref,Kind}`.
-- `BtrfsSnapshotter` (`//go:build linux`) — `btrfs subvolume snapshot -r`, id =
-  `UUID:generation`. **Cross-compiles for linux/amd64 + linux/arm64** (validated).
-- `DevSnapshotter` (portable) — content-hash + read-only tree copy; identical
-  contract, so seam/receipts/tests run on macOS/CI. `TestCommit_Versioned_*`
-  proves distinct immutable versions + receipt pinning + read-only-lease denial.
+Three seams, one Linux (dennwc/btrfs) impl + one portable dev impl each — the
+btrfs impls are the privileged OS-daemon capabilities, cross-compiled for
+linux/amd64 + linux/arm64:
+- **`Snapshotter`** — `BtrfsSnapshotter` (`SnapshotSubVolume` ro, id =
+  `UUID:generation`) / `DevSnapshotter` (content-hash + read-only tree copy).
+- **`Pruner` + `RetentionPolicy`** — retention is a *pure, fail-safe* function
+  (zero policy prunes nothing); `BtrfsPruner` = `DeleteSubVolume`, `DevPruner` =
+  `RemoveAll`. `Apply` is fail-closed on first delete error.
+- **`Replicator`** — `BtrfsReplicator` (`Send -p parent` / `Receive`) /
+  `DevReplicator` (tar stream). The managed-network face.
 
 `InceptionFS.Commit(purpose)` gates on write capability, snapshots, and appends a
 single `commit` receipt pinning `btrfs://<UUID:gen>` (or `dev://<hash>`).
 
+Proven on macOS (DevSnapshotter/DevPruner/DevReplicator + pure RetentionPolicy):
+distinct immutable versions + receipt pinning + read-only-lease denial; retention
+keep-last/keep-since/zero-keeps-all; dev replication round-trip. btrfs impls
+cross-compile; runtime proof runs on a Linux/btrfs node.
+
 ## Consequences
 
-- The **OS mounter daemon** owns snapshot + send/receive (privileged); pods only
-  ever see an unprivileged in-process VFS over a mounted subvolume.
+- The **OS mounter daemon** owns snapshot + prune + send/receive (privileged);
+  pods only ever see an unprivileged in-process VFS over a mounted subvolume.
 - Space = subvolume; version = read-only snapshot; replication = send/receive.
-- Retention/GC of snapshots is a daemon policy (bounded, fail-closed loop).
-- Next: swap the `btrfs` shell-out for dennwc/btrfs; wire send/receive replication
-  + a snapshot retention policy; run the runtime proof on a Linux/btrfs node.
+- `go 1.25.0` is the pinned floor — **required by go-git/go-billy v5.9.1**, not
+  drift.
+- Next: run the btrfs runtime proof on a Linux/btrfs node; a retention daemon
+  loop (bounded, fail-closed); wire spaces onto trit-pack / HellGraph / zot.

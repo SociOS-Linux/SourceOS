@@ -4,23 +4,18 @@ package backend
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/dennwc/btrfs"
 )
 
-// BtrfsSnapshotter is the production Linux Snapshotter. A commit becomes a
-// read-only btrfs snapshot of the space's subvolume — an O(1), COW-cheap,
-// immutable version. This is a PRIVILEGED operation (subvolume ops need
-// CAP_SYS_ADMIN unless mounted user_subvol_rm_allowed), so it is meant to run in
-// the owned OS-level mounter daemon, never in an unprivileged agent pod — which
-// is exactly why the versioning/replication layer is an OS concern.
-//
-// It shells the distro `btrfs` binary today; the owned path is dennwc/btrfs
-// (pure-Go btrfs ioctls, Apache-2.0) so the daemon carries no external runtime
-// dependency. Cross-node replication (not shown) is `btrfs send -p <parent> |
-// btrfs receive` — the managed-network face.
+// BtrfsSnapshotter is the production Linux Snapshotter, on the OWNED go btrfs
+// library (dennwc/btrfs, Apache-2.0 — pure-Go ioctls, no shell-out to a distro
+// binary). A commit is a read-only `btrfs` snapshot: O(1), COW-cheap, immutable.
+// Subvolume ops need CAP_SYS_ADMIN, so this runs in the owned OS-level mounter
+// daemon, never an unprivileged agent pod — which is why versioning is an OS
+// concern. Cross-node replication is BtrfsReplicator (send/receive).
 type BtrfsSnapshotter struct {
 	subvol  string // the space's read-write subvolume (working tree)
 	snapDir string // directory holding read-only snapshots
@@ -34,41 +29,24 @@ func (b *BtrfsSnapshotter) Kind() string { return "btrfs" }
 
 func (b *BtrfsSnapshotter) Snapshot(purpose string) (Version, error) {
 	dest := filepath.Join(b.snapDir, fmt.Sprintf("v-%d", time.Now().UTC().UnixNano()))
-	if out, err := exec.Command("btrfs", "subvolume", "snapshot", "-r", b.subvol, dest).CombinedOutput(); err != nil {
-		return Version{}, fmt.Errorf("btrfs snapshot: %v: %s", err, strings.TrimSpace(string(out)))
+	if err := btrfs.SnapshotSubVolume(b.subvol, dest, true); err != nil {
+		return Version{}, fmt.Errorf("btrfs snapshot %s -> %s: %w", b.subvol, dest, err)
 	}
-	id, err := subvolID(dest)
-	if err != nil {
-		return Version{Ref: dest, Kind: "btrfs"}, fmt.Errorf("read snapshot id: %w", err)
-	}
-	return Version{ID: id, Ref: dest, Kind: "btrfs"}, nil
+	return Version{ID: snapshotID(dest), Ref: dest, Kind: "btrfs"}, nil
 }
 
-// subvolID returns "<UUID>:<generation>" for the snapshot — a stable identity the
-// receipt chain binds (bind-at-capture).
-func subvolID(path string) (string, error) {
-	out, err := exec.Command("btrfs", "subvolume", "show", path).CombinedOutput()
+// snapshotID returns the snapshot's btrfs UUID:generation — a globally-unique,
+// immutable identity the receipt chain binds (bind-at-capture). Falls back to the
+// dest path if the subvolume info can't be read.
+func snapshotID(dest string) string {
+	fs, err := btrfs.Open(dest, true)
 	if err != nil {
-		return "", fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+		return dest
 	}
-	var uuid, gen string
-	for _, line := range strings.Split(string(out), "\n") {
-		f := strings.SplitN(strings.TrimSpace(line), ":", 2)
-		if len(f) != 2 {
-			continue
-		}
-		k, v := strings.TrimSpace(f[0]), strings.TrimSpace(f[1])
-		switch k {
-		case "UUID":
-			uuid = v
-		case "Generation", "Gen at creation":
-			if gen == "" {
-				gen = v
-			}
-		}
+	defer fs.Close()
+	info, err := fs.SubvolumeByPath(dest)
+	if err != nil || info == nil {
+		return dest
 	}
-	if uuid == "" {
-		return "", fmt.Errorf("no UUID in `btrfs subvolume show %s`", path)
-	}
-	return uuid + ":" + gen, nil
+	return fmt.Sprintf("%s:%d", info.UUID.String(), info.CTransID)
 }

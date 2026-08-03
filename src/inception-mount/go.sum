@@ -2,6 +2,10 @@ github.com/cyphar/filepath-securejoin v0.6.1 h1:5CeZ1jPXEiYt3+Z6zqprSAgSWiggmpVy
 github.com/cyphar/filepath-securejoin v0.6.1/go.mod h1:A8hd4EnAeyujCJRrICiOWqjS1AX0a9kM5XL+NwKoYSc=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dennwc/btrfs v0.0.0-20260222081608-edfb8b9e4f55 h1:VAnGuI8RNnP8vHqCn8X1O63TexAv+QjMqffBdkLbYKU=
+github.com/dennwc/btrfs v0.0.0-20260222081608-edfb8b9e4f55/go.mod h1:Kn6RQo4OP1ZEoLB3uldDJabFcf72VgDRInxEqLEo8OE=
+github.com/dennwc/ioctl v1.0.1-0.20181021180353-017804252068 h1:K71w/n/Y74EQsKo91511t7TK35YRPrk9G+2anKYNPXk=
+github.com/dennwc/ioctl v1.0.1-0.20181021180353-017804252068/go.mod h1:ellh2YB5ldny99SBU/VX7Nq0xiZbHphf1DrtHxxjMk0=
 github.com/go-git/go-billy/v5 v5.9.1 h1:8U73XiOTfINdItHVa6z4Gv7ToObcZ6grkqQbLryLCdA=
 github.com/go-git/go-billy/v5 v5.9.1/go.mod h1:ExsU+jcGwXTBOnyilvAnEM1wug1IxHr4yP2ZXsNRtV0=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
