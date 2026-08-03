@@ -4,6 +4,7 @@ package backend
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -26,6 +27,40 @@ func NewBtrfsSnapshotter(subvol, snapDir string) *BtrfsSnapshotter {
 }
 
 func (b *BtrfsSnapshotter) Kind() string { return "btrfs" }
+
+// List reports the snapshots under snapDir (id = UUID:generation, Created = the
+// subvolume's btrfs OTime; falls back to the dir mtime if info can't be read).
+func (b *BtrfsSnapshotter) List() ([]VersionMeta, error) {
+	entries, err := os.ReadDir(b.snapDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var out []VersionMeta
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		p := filepath.Join(b.snapDir, e.Name())
+		created := time.Time{}
+		if fi, err := e.Info(); err == nil {
+			created = fi.ModTime()
+		}
+		if fs, err := btrfs.Open(p, true); err == nil {
+			if info, err := fs.SubvolumeByPath(p); err == nil && info != nil {
+				created = info.OTime
+			}
+			fs.Close()
+		}
+		out = append(out, VersionMeta{
+			Version: Version{ID: snapshotID(p), Ref: p, Kind: "btrfs"},
+			Created: created,
+		})
+	}
+	return out, nil
+}
 
 func (b *BtrfsSnapshotter) Snapshot(purpose string) (Version, error) {
 	dest := filepath.Join(b.snapDir, fmt.Sprintf("v-%d", time.Now().UTC().UnixNano()))

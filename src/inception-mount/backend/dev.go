@@ -27,6 +27,32 @@ func NewDevSnapshotter(root, store string) *DevSnapshotter {
 
 func (d *DevSnapshotter) Kind() string { return "dev" }
 
+// List reports the frozen versions in the store (Created = the frozen dir's mtime).
+func (d *DevSnapshotter) List() ([]VersionMeta, error) {
+	entries, err := os.ReadDir(d.store)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var out []VersionMeta
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		fi, err := e.Info()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, VersionMeta{
+			Version: Version{ID: e.Name(), Ref: filepath.Join(d.store, e.Name()), Kind: "dev"},
+			Created: fi.ModTime(),
+		})
+	}
+	return out, nil
+}
+
 func (d *DevSnapshotter) Snapshot(purpose string) (Version, error) {
 	h, err := hashTree(d.root)
 	if err != nil {

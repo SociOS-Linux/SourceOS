@@ -20,3 +20,7 @@ func (b *BtrfsSnapshotter) Kind() string { return "btrfs" }
 func (b *BtrfsSnapshotter) Snapshot(purpose string) (Version, error) {
 	return Version{}, fmt.Errorf("btrfs snapshotter requires linux (GOOS=%s); use DevSnapshotter off-Linux", "!linux")
 }
+
+func (b *BtrfsSnapshotter) List() ([]VersionMeta, error) {
+	return nil, fmt.Errorf("btrfs list requires linux; use DevSnapshotter off-Linux")
+}
